@@ -311,3 +311,9 @@ Function GenerateRupStats()
 	display ForceMax_Hist
 ModifyGraph log=1
 end
+
+Menu "Force Ramp Utilities"
+	"Make Histogram", GenerateRupStats()
+
+	
+End
