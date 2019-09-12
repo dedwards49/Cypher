@@ -467,11 +467,15 @@ Window DE_CTFC_Control() : Panel
 	display/N=MostRecent/w=(50,250,550,500)/HOST=DE_CTFC_Control
 
 	make/o/n=0 root:DE_CTFC:MenuStuff:Display_DefV_1, root:DE_CTFC:MenuStuff:Display_ZSensor_1,root:DE_CTFC:MenuStuff:Display_DefV_2, root:DE_CTFC:MenuStuff:Display_ZSensor_2
+	make/o/n=0 root:DE_CTFC:MenuStuff:Display_CenD_1, root:DE_CTFC:MenuStuff:Display_CenZ_1
 	
 	appendtograph/W=DE_CTFC_Control#MostRecent root:DE_CTFC:MenuStuff:Display_DefV_1 vs root:DE_CTFC:MenuStuff:Display_ZSensor_1
 	appendtograph/W=DE_CTFC_Control#MostRecent root:DE_CTFC:MenuStuff:Display_DefV_2 vs root:DE_CTFC:MenuStuff:Display_ZSensor_2
+	appendtograph/W=DE_CTFC_Control#MostRecent root:DE_CTFC:MenuStuff:Display_CenD_1 vs root:DE_CTFC:MenuStuff:Display_CenZ_1
+
 	ModifyGraph/W=DE_CTFC_Control#MostRecent rgb(Display_DefV_2)=(0,0,0)
-	
+		ModifyGraph/W=DE_CTFC_Control#MostRecent rgb(Display_CenD_1)=(0,0,0)
+
 	make/o/n=0 root:DE_CTFC:MenuStuff:Display_XRZ root:DE_CTFC:MenuStuff:Display_XRX,root:DE_CTFC:MenuStuff:Display_FitX
 	make/o/n=0   root:DE_CTFC:MenuStuff:Display_YRZ, root:DE_CTFC:MenuStuff:Display_YRY,root:DE_CTFC:MenuStuff:Display_FitY
 
@@ -499,6 +503,8 @@ ModifyGraph/W=DE_CTFC_Control#CenterY lsize(Display_FitY)=2
 	ListBox list3,pos={1000,14},size={200,100},proc=ListBoxProc1,listWave=root:DE_CTFC:MenuStuff:ListCenterwave
 	ListBox list3,selWave=root:DE_CTFC:MenuStuff:SelCenterwave,editStyle= 2,userColumnResize= 1
 	CheckBox check0,pos={175,106},size={40,14},value= 0,mode=0,proc=CheckBoxProc_1,Title="Use Existing?"
+	CheckBox check1,pos={175,180},size={40,14},value= 0,mode=0,proc=CheckBoxProc_1,Title="Add a Ramp?"
+
 	Button button0,pos={800,120},size={50,20},proc=ButtonProc_1,title="Go"
 
 	Button button3,pos={860,120},size={50,20},proc=ButtonProc_4,title="Stop Next"
@@ -978,3 +984,18 @@ Function DE_MakeCentering()
 	CenteringSettings[0][1]= {"Distance","Velocity","Time to Start","Surface Location","Current offset","Rate","Bandwidth","Zero Force","Force Set"}
 	CenteringSettings[0][2]= {"nm","nm/s","s","V","V","kHz","kHz","pN","pN"}
 End
+
+Static Function PlotCentering()
+wave CXZ=CenteringXReadZ
+wave CXX=CenteringXReadX
+wave CYZ=CenteringYReadZ
+wave Cyy=CenteringyReady
+Display CXZ vs CXX; AppendToGraph/B=B1 CYZ vs CYy
+
+ModifyGraph axisEnab(B1)={0.55,1}
+ModifyGraph axisEnab(bottom)={0,0.45}
+ModifyGraph freePos(B1)={0,left}
+ModifyGraph mode=3,marker=19,useMrkStrokeRGB=1;DelayUpdate
+ModifyGraph rgb($nameofwave(CXZ))=(14848,32256,47104);DelayUpdate
+ModifyGraph rgb($nameofwave(CYZ))=(19712,44800,18944)
+end

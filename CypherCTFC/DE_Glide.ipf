@@ -55,7 +55,7 @@ Static Function Done()
 	
 	if(StringMatch(SlowInfo[%UltraFast][0],"No")!=1)
 		ReadFast=DE_CheckFast("Access 5 MHz","5 MHz Check")
-			
+ 			//ReadFast=1
 		if(ReadFast!=4)
 			Command="Glide done: Accessing High Bandwidth"
 			DE_TriggeredForcePanel#UpdateCommandOut(Command,"Replace")

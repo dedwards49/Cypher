@@ -3,7 +3,7 @@
 Static Constant cForceAnalyzeFolder = 3		//these have to be constants, or switches wont work on them.
 Static Constant cForceDeleteSelectedFolder = 5
 Static Constant cForceModifyFolder = 6
-#include "ForceRampUtilities"
+#include ":ForceRampUtilities"
 
 // This function calculates the rupture force, the wave index of the rupture force and the separation the rupture force happens at
 //Function/Wave BreakingForceStats(ForceRetWave,SepWave,StartDist,[OffsetWaves])

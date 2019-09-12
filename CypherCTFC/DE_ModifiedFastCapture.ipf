@@ -8,11 +8,26 @@
 
 function ReadHighBandwidth(ReadFast,[Callback])
 	variable ReadFast
+	
 	String Callback
+	Wave/T RampInfo=root:DE_CTFC:RampSettings
+
 	if(ParamisDefault(Callback)==1)
 		Callback=""
 	endif
-	if(cmpstr(CallBack,"")==0)
+	if(cmpstr(RampInfo[%CallBack][0],"DE_SimpleRamp#SimpleForceCallback()")==0)
+			controlinfo/W=DE_CTFC_Control popup2
+		string Fast=S_Value
+		if(StringMatch(Fast,"5 MHz")==1)
+				
+			DE_MAPFastCaptureCallback("Read",ReadFast,Callback)
+		elseif(StringMatch(Fast,"2 MHz")==1)
+			ReturnStream(ReadFast,Callback)
+
+		elseif(StringMatch(Fast,"500 kHz")==1)
+			ReturnStream(ReadFast,Callback)
+		endif
+	elseif(cmpstr(CallBack,"")==0)
 		Wave/T SlowInfo=root:DE_CTFC:RefoldSettings
 
 		if(StringMatch(SlowInfo[%UltraFast][0],"5 MHz")==1)
@@ -176,78 +191,85 @@ Function ReturnStream(SaveFast,Callback)
 		 
 		Print "Saving Fast Capture to Disk"
 		string Pathname,SaveName
+		if(cmpstr(RampInfo[8][0],"DE_SimpleRamp#SimpleForceCallback()")==0)
+					PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
 	
-		strswitch(RefoldInfo[%ExperimentName][0])//Right now every program except Multiramp can just launch. multiRamp does it's own thing.
+					SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_"+DE_PreviousForceRamp()+"_"+".pxp"
 	
-			case "Glide":
-				PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
 	
-				SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_"+DE_PreviousForceRamp()+"_"+".pxp"
+		else
+			strswitch(RefoldInfo[%ExperimentName][0])//Right now every program except Multiramp can just launch. multiRamp does it's own thing.
 	
-				break
+				case "Glide":
+					PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
+	
+					SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_"+DE_PreviousForceRamp()+"_"+".pxp"
+	
+					break
 				
-			case "Step Out":
-				PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
-				SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_"+DE_PreviousForceRamp()+"_"+".pxp"
+				case "Step Out":
+					PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
+					SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_"+DE_PreviousForceRamp()+"_"+".pxp"
 	
-				break
+					break
 							
-			case "SOEquil":
-				PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
-				SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_"+DE_PreviousForceRamp()+"_"+".pxp"
+				case "SOEquil":
+					PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
+					SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_"+DE_PreviousForceRamp()+"_"+".pxp"
 	
-				break
+					break
 				
-			case "MultiRamp":
-				CorrectionIteration=RefoldInfo[%CurrIter]
-				note DeflWave "Iteration="+CorrectionIteration+";"
-				PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
-				SaveName=DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_"+DE_PreviousForceRamp()+"_"+CorrectionIteration+".pxp"
+				case "MultiRamp":
+					CorrectionIteration=RefoldInfo[%CurrIter]
+					note DeflWave "Iteration="+CorrectionIteration+";"
+					PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
+					SaveName=DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_"+DE_PreviousForceRamp()+"_"+CorrectionIteration+".pxp"
 	
-				break
+					break
 				
-			case "MultiRampOL":
-				CorrectionIteration=RefoldInfo[%CurrIter]
-				note DeflWave "Iteration="+CorrectionIteration+";"
-				PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
-				SaveName=DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_"+DE_PreviousForceRamp()+"_"+CorrectionIteration+".pxp"
+				case "MultiRampOL":
+					CorrectionIteration=RefoldInfo[%CurrIter]
+					note DeflWave "Iteration="+CorrectionIteration+";"
+					PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
+					SaveName=DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_"+DE_PreviousForceRamp()+"_"+CorrectionIteration+".pxp"
 	
-				break
-			case "MBullUnfolding":
-				//	CorrectionIteration=RefoldInfo[%CurrIter]
-				//note DeflWave "Iteration="+CorrectionIteration+";"
-				PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
-				SaveName=DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_"+DE_PreviousForceRamp()+".pxp"
+					break
+				case "MBullUnfolding":
+					//	CorrectionIteration=RefoldInfo[%CurrIter]
+					//note DeflWave "Iteration="+CorrectionIteration+";"
+					PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
+					SaveName=DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_"+DE_PreviousForceRamp()+".pxp"
 	
-				break
+					break
 				
-			case "KickIt":
+				case "KickIt":
 			
-				PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
-				strswitch(Callback)
-					case "Multi":
-						NVar Res=root:DE_CTFC:StuffToDo:MultiRamp
-						SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_Multi_"+num2str(Res)+".pxp"
-						break
-					case "JumpPause":
-						NVar Res=root:DE_CTFC:StuffToDo:JumpPause
-						SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_JP_"+num2str(Res)+".pxp"
-						break
-					case "StepOut":
-						NVar Res=root:DE_CTFC:StuffToDo:StepOut
-						SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_SO_"+num2str(Res)+".pxp"
-						break
-										case "StepJump":
-						NVar Res=root:DE_CTFC:StuffToDo:StepJump
-						SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_SJ_"+num2str(Res)+".pxp"
-						break
-				endswitch
-				break
-			default:
+					PathName="C:Users:Asylum User:Desktop:Devin:FastCaptureData:"+DE_DateStringForSave()
+					strswitch(Callback)
+						case "Multi":
+							NVar Res=root:DE_CTFC:StuffToDo:MultiRamp
+							SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_Multi_"+num2str(Res)+".pxp"
+							break
+						case "JumpPause":
+							NVar Res=root:DE_CTFC:StuffToDo:JumpPause
+							SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_JP_"+num2str(Res)+".pxp"
+							break
+						case "StepOut":
+							NVar Res=root:DE_CTFC:StuffToDo:StepOut
+							SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_SO_"+num2str(Res)+".pxp"
+							break
+						case "StepJump":
+							NVar Res=root:DE_CTFC:StuffToDo:StepJump
+							SaveName= DE_DateStringForSave()+"_"+DE_TimeStringForSave()+"_"+"FastCapture_SJ_"+num2str(Res)+".pxp"
+							break
+					endswitch
+					break
+				default:
 				
 	
 				
-		endswitch 
+			endswitch 
+		endif
 		//PathName="c:Test"
 		NewPath/O/C FastCapturePath,PathName
 		NewDataFolder/O/S HBSave
@@ -263,6 +285,10 @@ Function ReturnStream(SaveFast,Callback)
 	endif
 
 	//KilLWindow FastCaptureData	
+	if(cmpstr(RampInfo[8][0],"DE_SimpleRamp#SimpleForceCallback()")==0)
+					DE_Simpleramp#Repeat()
+	
+		else
 	strswitch(RefoldInfo[%ExperimentName][0])//Right now every program except Multiramp can just launch. multiRamp does it's own thing.
 
 		case "Glide":
@@ -310,7 +336,7 @@ Function ReturnStream(SaveFast,Callback)
 
 	
 	endswitch 
-
+	endif
 End //DE_MAPFastCaptureCallback
 
 
