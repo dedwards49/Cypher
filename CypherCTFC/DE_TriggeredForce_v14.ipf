@@ -52,7 +52,7 @@ Function DE_LoadCTFCparms(RampSettings,RefoldSettings,Type)
 	Wave/T TriggerInfo=root:DE_CTFC:TriggerSettings
 	String ErrorStr = ""
 	Variable Scale = 1
-	
+	//string Experiment=RampSetting
 	RampChannel =  "Output.Z"
 	ApproachTriggerChannel=RampSettings[1][0]   //sets the first trigger channel. This will presumably often be deflection (to first touch of the surface), but could be something else
 	strswitch(ApproachTriggerChannel)  //A switch to properly define the trigger levels (in voltage) based on the channel used for the first trigger. For now I just have Deflection and an option for not recognized
@@ -164,6 +164,8 @@ Function DE_LoadCTFCparms(RampSettings,RefoldSettings,Type)
 	ErrorStr += num2str(td_WriteString("Event.5","Clear"))+","
 	ErrorStr += num2str(td_WriteString("Event.3","Clear"))+","
 	ErrorStr += num2str(td_writeGroup("ARC.CTFC",TriggerInfo))+","
+	
+	
 	
 	strswitch(Type)//This controls whether or not we setup the extension feedback AFTER the end of the CTFC. For normal runs we want this, but when finding the surface or
 					//setting up detrend, we don't.
@@ -372,6 +374,7 @@ end//DE_Custom1_Glide
 //DE_StartCTFC() Starts the first CTFC each and every time. This is the main one!
 Function DE_StartCTFC(Type)
 	string Type
+	wave/T RamPSettings
 	td_ws("arc.crosspoint.ina","Defl") //Sets the IN.A chanel to read deflection.
 		
 	if(Exists("root:DE_CTFC:MenuStuff:Stop")==2)//Checks if someone hit "stop next" if so, runs stop.
@@ -403,21 +406,28 @@ Function DE_StartCTFC(Type)
 		return -1
 	
 	endif
+
+	
+	
+	
 	
 	DE_GrabExistingCTFCParms()
 	DE_LoadCTFCParms(RampSettings,RefoldSettings,Type)
 	DE_SetInWavesFromCTFC(RampSettings,RefoldSettings,Type)
 	
 	Variable Error = 0
+//	if(cmpstr(Type,"Run")==0||
 	
+	
+	
+//	end
 	Error += td_WS("Event.2","Clear")	
 	Error += td_WS("Event.3","Clear")	
 	Error += td_WS("Event.4","Clear")	
 	Error += td_WS("Event.5","Clear")	
 	Error += td_WS("Event.6","Clear")		
-	
 	Error += td_WS("Event.2","Once")		//Fires event.2, this starts everything!
-	DE_TriggeredForcePanel#UpdateCommandOut("Begin Approach","Add")
+//	DE_TriggeredForcePanel#UpdateCommandOut("Begin Approach","Add")
 	If (Error > 0)
 		print "Error in StartMyCTFC"
 	Endif
@@ -543,7 +553,6 @@ function DE_PauseStage()
 end
 
 function DE_Switches()
-
 	//wave customwave2
 	wave/t RefoldSettings
 	variable decirate//,DataLength,runFast,outdecirate,adding,total2,overage,zerovolt,PVol, startmultivolt,endmultivolt,TotalTime,rep
@@ -671,7 +680,9 @@ function DE_CB_Mol(Experiment,Result)
 		case "TFE":
 	
 			if(Result==1)
-				DE_LoopRepeater()
+				td_SetRamp(.1, "PIDSLoop.0.SetpointOffSet", 0, 0, "PIDSLoop.1.SetpointOffSet", 0, 0, "", 0, 0, "DE_LoopRepeater()")
+
+			//	DE_LoopRepeater()
 			else
 
 			endif
@@ -1277,6 +1288,7 @@ end // DE_SaveReg()
 //DE_UpdatePlot
 function DE_UpdatePlot(Desc)
 	string Desc
+	print Desc
 	wave/t RefoldSettings
 	wave/Z DetrendFit
 	if(waveexists(root:DE_CTFC:MenuStuff:Display_DefV_1)==0)
@@ -1301,7 +1313,7 @@ function DE_UpdatePlot(Desc)
 			//make/o/n=0 root:DE_CTFC:MenuStuff:Display_DefV_1,root:DE_CTFC:MenuStuff:Display_ZSensor_1	
 			duplicate/o root:DE_CTFC:DefV_Fast root:DE_CTFC:MenuStuff:Display_DefV_1
 			duplicate/o root:DE_CTFC:ZSensor_Fast root:DE_CTFC:MenuStuff:Display_ZSensor_1
-			ModifyGraph/W=DE_CTFC_Control#MostRecent hideTrace(Display_DefV_1)=0,hideTrace(Display_DefV_2)=1
+			ModifyGraph/W=DE_CTFC_Control#MostRecent hideTrace(Display_DefV_1)=0,hideTrace(Display_DefV_2)=1,hideTrace(Display_CenD_1)=1
 			SetAxis/A/W=DE_CTFC_Control#MostRecent
 			ModifyGraph/W=DE_CTFC_Control#Smoothed hideTrace(Display_SMDefV_1)=1
 		
@@ -1311,10 +1323,19 @@ function DE_UpdatePlot(Desc)
 			//make/o/n=0 root:DE_CTFC:MenuStuff:Display_DefV_1,root:DE_CTFC:MenuStuff:Display_ZSensor_1
 			duplicate/o root:DE_CTFC:DefV_Fast root:DE_CTFC:MenuStuff:Display_DefV_1
 			duplicate/o root:DE_CTFC:ZSensor_Fast root:DE_CTFC:MenuStuff:Display_ZSensor_1
-			ModifyGraph/W=DE_CTFC_Control#MostRecent hideTrace(Display_DefV_1)=0,hideTrace(Display_DefV_2)=1
+			ModifyGraph/W=DE_CTFC_Control#MostRecent hideTrace(Display_DefV_1)=0,hideTrace(Display_DefV_2)=1,hideTrace(Display_CenD_1)=1
 			SetAxis/A/W=DE_CTFC_Control#MostRecent
 			ModifyGraph/W=DE_CTFC_Control#Smoothed hideTrace(Display_SMDefV_1)=1
 	
+			break
+		case "Centered":
+			wave CentDefv= root:DE_CTFC:DefV_cent
+			wave CentZSnsr=root:DE_CTFC:ZSns_cent
+			duplicate/o CentDefv root:DE_CTFC:MenuStuff:Display_CenD_1
+			duplicate/o CentZSnsr root:DE_CTFC:MenuStuff:Display_CenZ_1
+			ModifyGraph/W=DE_CTFC_Control#MostRecent hideTrace(Display_DefV_1)=0,hideTrace(Display_CenD_1)=0,hideTrace(Display_DefV_2)=1
+			SetAxis/A/W=DE_CTFC_Control#MostRecent
+		
 			break
 				
 		case "Triggered Done":
@@ -1322,7 +1343,7 @@ function DE_UpdatePlot(Desc)
 			duplicate/o root:DE_CTFC:DefV_Slow root:DE_CTFC:MenuStuff:Display_DefV_2
 			duplicate/o root:DE_CTFC:ZSensor_Slow root:DE_CTFC:MenuStuff:Display_ZSensor_2
 			duplicate/o root:DE_CTFC:ZSensor_Fast root:DE_CTFC:MenuStuff:Display_ZSensor_1
-			ModifyGraph/W=DE_CTFC_Control#MostRecent hideTrace(Display_DefV_1)=0,hideTrace(Display_DefV_2)=0
+			ModifyGraph/W=DE_CTFC_Control#MostRecent hideTrace(Display_DefV_1)=0,hideTrace(Display_DefV_2)=0,hideTrace(Display_CenD_1)=0
 			SetAxis/A/W=DE_CTFC_Control#MostRecent
 			DoUpdate/W=DE_CTFC_Control#MostRecent
 					

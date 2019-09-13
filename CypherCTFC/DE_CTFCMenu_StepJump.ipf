@@ -10,6 +10,7 @@ Static Function Start()
 		SJW[%EndingVoltage_V][0]=endmultivolt
 	variable startrelativevolt=startmultivolt-td_rv("PIDSLoop.5.Setpoint")
 	variable endrelativevolt=endmultivolt-td_rv("PIDSLoop.5.Setpoint")	
+
 	variable outdecirate=GenerateStepJump(startrelativevolt,endrelativevolt)
 	variable decirate=50/SJW[%Bandwidth_kHz][0]
 	wave DefV_slow=root:DE_CTFC:StuffToDo:StepJump:DefV
@@ -285,6 +286,7 @@ Static Function GenerateStepJump(startvolt,endvolt)
 			CW[s2,e2]=constant2
 		endfor
 	endif
+	CW+=startvolt
 	return rdecirate
 End // GenerateStepJump()
 

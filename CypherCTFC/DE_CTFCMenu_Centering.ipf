@@ -2,26 +2,21 @@
 #pragma ModuleName = DE_Menu_Centering
 Static function Start()
 	wave CenteringSettings=root:DE_CTFC:StuffToDo:Centering:CenteringWave
-//	print td_rv("PIDSLoop.0.Setpoint")+td_RV("PIDSLoop.0.Setpointoffset")
-//		print td_rv("PIDSLoop.1.Setpoint")+td_RV("PIDSLoop.1.Setpointoffset")
+	print td_rv("PIDSLoop.0.Setpoint")+td_RV("PIDSLoop.0.Setpointoffset")
+		print td_rv("PIDSLoop.1.Setpoint")+td_RV("PIDSLoop.1.Setpointoffset")
 
-	
-	//Pull some relevent parameters from the waves
 	variable SampleRate,FilterFreq,OutDistance,Marker,CenterLocVolt,totaltime,decirate
-	SampleRate=(CenteringSettings[%Rate_kHz][0])*1e3//Sampling for the centering wave
-	FilterFreq=(CenteringSettings[%Bandwidth_kHz][0])*1e3//Filter frequency to apply to the centering and feedback
-	CenteringSettings[%Zeroish_V][0]=str2num(td_rs("Deflection"))//Saves out "zero" for defleciton, which is the deflection votlage at whereever we have paused ourselves
-	OutDistance=(CenteringSettings[%Distance_nm][0])*1e-9//How far to pull out in nm
-	Marker=DE_Centering#PlaceMarker(OutDistance)//Drops a markers on that location which is outdistance nm from where we are
-	CenterLocVolt= Marker//Records the Zsnsor Voltage of where we want to pull to
-	
-	//create some waves
+	SampleRate=(CenteringSettings[%Rate_kHz][0])*1e3
+	FilterFreq=(CenteringSettings[%Bandwidth_kHz][0])*1e3
+	CenteringSettings[%Zeroish_V][0]=str2num(td_rs("Deflection"))
+	OutDistance=(CenteringSettings[%Distance_nm][0])*1e-9
+	 Marker=DE_Centering#PlaceMarker(OutDistance)
+	CenterLocVolt= Marker
 	make/o/n=0 root:DE_CTFC:StuffToDo:Centering:CenteringPathX,root:DE_CTFC:StuffToDo:Centering:CenteringPathY
 	wave CPX=root:DE_CTFC:StuffToDo:Centering:CenteringPathX
 	wave CPY=root:DE_CTFC:StuffToDo:Centering:CenteringPathY
-	totaltime=DE_Menu_Centering#MakePath(CPX,CPY)  //This makes the X and Y outwaves and returns the total time we expect it to take!
-	make/o/n=(SampleRate*totaltime)  root:DE_CTFC:StuffToDo:Centering:CenteringXReadZ,  root:DE_CTFC:StuffToDo:Centering:CenteringYReadZ, root:DE_CTFC:StuffToDo:Centering:CenteringXReadX, root:DE_CTFC:StuffToDo:Centering:CenteringYReadY//makes the waves to read the centering
-	
+	totaltime=DE_Menu_Centering#MakePath(CPX,CPY)  //This makes the waves and returns the total time we expect it to take!
+	make/o/n=(SampleRate*totaltime)  root:DE_CTFC:StuffToDo:Centering:CenteringXReadZ,  root:DE_CTFC:StuffToDo:Centering:CenteringYReadZ, root:DE_CTFC:StuffToDo:Centering:CenteringXReadX, root:DE_CTFC:StuffToDo:Centering:CenteringYReadY
 	wave CXRZ=root:DE_CTFC:StuffToDo:Centering:CenteringXReadZ
 	wave CYRZ=root:DE_CTFC:StuffToDo:Centering:CenteringYReadZ
 	wave CXRX=root:DE_CTFC:StuffToDo:Centering:CenteringXReadX
@@ -29,7 +24,7 @@ Static function Start()
 
 	td_ws("arc.crosspoint.inb","ZSnsr") //Sets the IN.B chanel to read a smoothed ZSnsr...I bet I could get away just reading ZSnsr
 	//td_wv("Arc.Input.A.Filter.Freq",FilterFreq)
-	td_wv("Arc.Input.B.Filter.Freq",FilterFreq)//Sets smoothing on that channel
+	td_wv("Arc.Input.B.Filter.Freq",FilterFreq)
 	ReadFilterValues(3)
 	PV("ZStateChanged",1)	
 	decirate=50e3/SampleRate
@@ -42,8 +37,8 @@ Static function Start()
 	IR_xSetOutWave(1,"12","$OutputYLoop.SetPointOffset",CPY,"DE_Menu_Centering#YDoneFirst()",decirate)
 
 	variable TimetoStart=0.01
-	CenterLocVolt/=GV("ZLVDTSENS") //Turns this into a voltage
-	td_SetRamp(TimetoStart, "PIDSLoop.5.Setpointoffset", 0, CenterLocVolt, "", 0, 0, "", 0, 0, "DE_Menu_Centering#Init()")//Ramps us back to the desired start point
+	CenterLocVolt/=GV("ZLVDTSENS")
+	td_SetRamp(TimetoStart, "PIDSLoop.5.Setpointoffset", 0, CenterLocVolt, "", 0, 0, "", 0, 0, "DE_Menu_Centering#Init()")
 	
 end 
 Static Function Forced()
@@ -53,13 +48,10 @@ end
 Static Function XDone()
 	td_ws("Event.12","once")	//starts Y outwave AND Y WaveRead
 end
-
-//StartXandY sets up the X and Y PIDS loops on 0 and 1 respectively. If they are currently active, they are stopped to avoid any weirdness and allow them to be ramped from a locatl starting point
 Static function StartXandY()
 	Struct ARFeedbackStruct FB
 	String ErrorStr = ""
 
-	//Setup X as a dynamic feedback loop
 	if(cmpstr(td_rs("Arc.PidsLoop.0.Status"),"1")==0)
 		ir_StopPISLoop(0) 
 	else
@@ -70,7 +62,6 @@ Static function StartXandY()
 	FB.DynamicSetpoint = 1
 	ErrorStr += ir_WritePIDSloop(FB)
 
-	//Setup Y as a dynamic feedback loop
 	if(cmpstr(td_rs("Arc.PidsLoop.1.Status"),"1")==0)
 		ir_stopPISLoop(1)
 	endif
@@ -82,8 +73,6 @@ Static function StartXandY()
 	FB.DynamicSetpoint = 1
 	ErrorStr += ir_WritePIDSloop(FB)
 end
-
-//Init prepares the
 Static Function Init()
 	wave CenteringSettings=root:DE_CTFC:StuffToDo:Centering:CenteringWave
 	DE_CEntering#PrepPIDS(10,13)
@@ -96,8 +85,6 @@ Static Function Init()
 
 	td_SetRamp(0.01, "Arc.PIDSLoop.3.Setpoint", 0, dest0, "", 0, 0, "", 00, 00,"DE_Menu_Centering#Forced()" )
 end
-
-
 Static Function YDoneFirst()
 	wave CenteringSettings=root:DE_CTFC:StuffToDo:Centering:CenteringWave
 	wave CPX=root:DE_CTFC:StuffToDo:Centering:CenteringPathX

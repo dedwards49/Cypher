@@ -23,7 +23,7 @@ Static function StartCentering()
 	
 	SampleRate=str2num(CenteringSettings[%Rate][0])*1e3
 	FilterFreq=str2num(CenteringSettings[%Bandwidth][0])*1e3
-	CenteringSettings[%Zeroish][0]=td_rs("Deflection")
+	CenteringSettings[%Zeroish][0]=td_rs("arc.input.A")
 	DE_UpdatePlot("Triggered 1")
 	
 	variable CenteringEngage=DE_CheckRamp("Do You Want to Center?","Center",PopupName="popup8")
@@ -214,9 +214,101 @@ end
 Static Function Centered()
 //DE_PIS_ZeroSetpointOffset(0,"")
 //DE_PIS_ZeroSetpointOffset(1,"")
-UpdateCenteringPlots()
-	DE_PauseStage()
+	UpdateCenteringPlots()
+	controlinfo/W=DE_CTFC_Control  check1
+	//v_value=1
+	if(V_Value==0)
+		DE_PauseStage()
+
+	elseif(V_Value==1)
+		PauseStage()
+	
+	endif
 end
+
+Static function PauseStage()
+	wave/t RefoldSettings
+	variable maxSeconds=str2num(RefoldSettings[%ApproachDelay][0])
+	if (maxSeconds<=0)
+		FinalRamp()
+	else
+		variable dest0=td_rv("PIDSLoop."+num2str(5)+".SetPoint")
+		td_setramp(maxSeconds, "PIDSLoop."+num2str(5)+".SetPoint", 0, dest0, "", 0, 0, "", 0, 0, "DE_Centering#FinalRamp()")
+	endif
+end
+
+Static Function FinalRamp()
+	Wave/T rampsettings
+	variable indatarate=str2num(rampsettings[%SampleRate][0])*1e3
+	variable indecimation=-1*round(50e3/indatarate)
+	variable outdecirate=imag(GenerateCentRampOut())
+
+	wave CentDefv= root:DE_CTFC:DefV_cent
+	wave CentZSnsr=root:DE_CTFC:ZSns_cent
+	wave CW=root:DE_CTFC:CenteringRampOut
+	
+	 td_XSetInWavePair(0,"11","Deflection",CentDefv,"ZSensor",CentZSnsr,"",indecimation)
+	IR_xSetOutWave(0,"11","PIDSLoop.5.SetPointOffset",CW,"DE_Centering#RampOutDone()",outdecirate)
+	print td_Ws("Event.11","once")
+	
+end
+Static Function RampOUtDone()
+	Wave/T RepeaSettings,RampSettings
+	wave CentDefv= root:DE_CTFC:DefV_cent
+	wave CentZSnsr=root:DE_CTFC:ZSns_cent
+	wave CW=root:DE_CTFC:CenteringRampOut
+	DE_Glide#GlideSave(RepeaSettings,RampSettings,CentDefv,CentZSnsr)
+	DE_UpdatePlot("Centered")
+	DE_PauseStage()
+	
+	
+end
+
+Static Function/C GenerateCentRampOut()
+	Wave/T rampsettings
+	wave/t RefoldSettings
+	variable totalpoints,slope2,decirate,totaldistance,outdecirate,constant2,endrmp1,endpause1,endrmp2,velocity,datarate
+
+	totaldistance=2*str2num(rampsettings[%NoTriggerDistance][0])*1e-9
+	datarate=str2num(RampSettings[%SampleRate][0])*1e3
+	velocity=str2num(rampsettings[%RetractVElocity][0])*1e-6
+
+	decirate=50e3/datarate
+	totalpoints=datarate*(totaldistance/velocity)
+
+	make/o/n=(totalpoints) root:DE_CTFC:DefV_cent,root:DE_CTFC:ZSns_cent
+	if(totalpoints<=5000) //checks if we exceed the limit for IR_xSetOutWave
+		outdecirate=decirate
+		make/o/n=(totalpoints) root:DE_CTFC:CenteringRampOut
+		wave CW=root:DE_CTFC:CenteringRampOut
+		slope2=sign(totaldistance)*Velocity/1e-9/GV("ZLVDTSens")*1e-9/(50e3/outdecirate)  //The Sign in front tells us if we're ramping negative or positive.
+		constant2=0
+		endrmp1=round(50e3/outdecirate*(abs(totaldistance)/(Velocity)/2))
+		CW[0,endrmp1-1]=slope2*p+constant2
+		CW[endrmp1,]=slope2*endrmp1+constant2-slope2*(p-endrmp1+1)
+	else
+		totalpoints=5000
+		outdecirate=round(50000/totalpoints)*(abs(totaldistance)/velocity)
+		make/o/n=(totalpoints) root:DE_CTFC:CenteringRampOut
+		wave CW=root:DE_CTFC:CenteringRampOut
+		slope2=sign(totaldistance)*Velocity/1e-9/GV("ZLVDTSens")*1e-9/(50e3/outdecirate)  //The Sign in front tells us if we're ramping negative or positive.
+		constant2=0
+		endrmp1=round(50e3/outdecirate*(abs(totaldistance)/(Velocity)/2))
+		CW[0,endrmp1-1]=slope2*p+constant2
+		CW[endrmp1,]=slope2*endrmp1+constant2-slope2*(p-endrmp1+1)
+//		
+	endif
+	variable offset=td_ReadValue("PIDSLoop.5.Setpoint")//This adjusts the wave to be a setrampoffset, rather than a straight setramp. 
+//	//	//this way I don't have to worry about it, but I honestly don't quite understand this
+	CW*=-1
+//	if(numtype(offset)==0)		
+//		//FastOP CW=CW-(offset)
+//	else
+//	endif
+//
+	return cmplx(totalpoints/(50e3/outdecirate),outdecirate)
+//
+End
 
 Static Function UpdateCenteringPlots()
 	wave CenteringXReadZ, CenteringYReadZ,CenteringXReadX,CenteringYReadY
@@ -319,12 +411,11 @@ Static Function PrepPIDS(StartEvent,StopEvent)
 
 	td_RG("ARC.PIDSLoop.2",PIDSLoopGroup)
 	
-	
 	//Now fill in all the parameters for the feedback loop.  Setpoint is the deflection setpoint //in volts. Note: If you mess with the crosspoint, you may need to change inputchannel
 	PIDSLoopGroup[%DynamicSetPoint]="Yes"
 	PIDSLoopGroup[%Setpoint]=num2str(-.5)
 	PIDSLoopGroup[%SetpointOffset]=num2str(0)
-	PIDSLoopGroup[%InputChannel]="Deflection"
+	PIDSLoopGroup[%InputChannel]="arc.input.A"
 	PIDSLoopGroup[%OutputChannel]="Output.Z"
 	PIDSLoopGroup[%IGain]="3000"
 	PIDSLoopGroup[%StartEvent]=num2str(StartEvent)
@@ -477,3 +568,89 @@ End
 
 
 
+Function RampXandYAndRecord()
+	make/o/n=0  DTEXRamp,DTEYRamp
+	variable SampleRate=1e3
+	variable totaltime=MakePathFromLine(DTEXRamp,DTEYRamp,500e-9,500e-9,1e3)
+
+	make/o/n=(SampleRate*totaltime) CenteringXReadZ, CenteringYReadZ,CenteringXReadX,CenteringYReadY
+	CenteringXReadZ=0
+	 CenteringYReadZ=0
+	 CenteringXReadX=0
+	 CenteringYReadY=0
+//	
+//	td_ws("arc.crosspoint.inb","ZSnsr") //Sets the IN.B chanel to read a smoothed ZSnsr...I bet I could get away just reading ZSnsr
+//	//td_wv("Arc.Input.A.Filter.Freq",FilterFreq)
+//	td_wv("Arc.Input.B.Filter.Freq",FilterFreq)
+//	ReadFilterValues(3)
+//	PV("ZStateChanged",1)	
+	variable decirate=50e3/SampleRate
+//	StartXandY()
+//		
+//	variable Error=0
+//	Error += td_WS("Event.1","Clear")	
+//	Error += td_WS("Event.2","Clear")	
+//	Error+= td_WS("Event.3","Clear")	
+//	Error += td_WS("Event.4","Clear")	
+//	Error += td_WS("Event.5","Clear")	
+//	Error += td_WS("Event.6","Clear")	
+//			Error += td_WS("Event.9","Clear")	
+//
+//		Error += td_WS("Event.10","Clear")	
+//	Error += td_WS("Event.11","Clear")	
+//	Error+= td_WS("Event.12","Clear")	
+//	Error += td_WS("Event.13","Clear")	
+//	Error += td_WS("Event.14","Clear")	
+//	Error += td_WS("Event.15","Clear")	
+
+	 td_XSetInWavePair(0,"11","Deflection",CenteringXReadZ,"XSensor",CenteringXReadX,"",decirate)
+	 td_XSetInWavePair(1,"12","Deflection",CenteringYReadZ,"YSensor",CenteringYReadY,"",decirate)
+	IR_xSetOutWave(0,"11","$OutputXLoop.SetPointOffset",DTEXRamp,"DE_Centering#RecordDone1()",decirate)
+	IR_xSetOutWave(1,"12","$OutputYLoop.SetPointOffset",DTEYRamp,"DE_Centering#RecordDone2()",decirate)
+	Td_WS("event.11","once")
+//
+//	CenterLocVolt/=GV("ZLVDTSENS")
+//	td_SetRamp(TimetoStart, "PIDSLoop.5.Setpointoffset", 0, CenterLocVolt, "", 0, 0, "", 0, 0, "DE_Centering#Init()")
+	
+
+end
+
+Static Function RecordDone1()
+	Td_WS("event.12","once")
+end
+
+Static Function RecordDone2()
+end
+Static function MakePathFromLine(PathXOut,PathYOUt,RampRange,RampSpeed,RampRate)
+	wave PathXOut,PathYOUt
+	variable RampRange,RampSpeed,RampRate
+	wave/T CenteringSettings
+	variable RampRangeV,RampSpeedV, RampTime,npnts
+	
+	//RampRange=str2num(CenteringSettings[%Distance][0])*1e-9 //Just making this up right now
+	//RampSpeed=str2num(CenteringSettings[%Velocity][0])*1e-9//in m/s
+
+	RampRangeV=RampRange/GV("ZLVDTSENS")
+	RampSpeedV=RampSpeed/GV("ZLVDTSENS")
+
+	//RampRate=str2num(CenteringSettings[%Rate][0])*1e3 //pnts/sec
+	
+	//This below movesX and Y in two steps. Currently those are identical ramps, but I left it coded to be easily changed. Furhter, it could be modified to make 
+	//this all part of one ramp and the data is then split.
+	RampTime=RampRange/RampSpeed*4 //The time to go one way, times 4, times 2= times8
+	npnts=ceil(RampTime*RampRate/4)*4
+	make/free/n=(npnts)  CenteringPathX,CenteringPathY
+	print npnts
+	CenteringPathX[0,npnts/4]=RampSpeedV*x/RampRate
+	CenteringPathX[npnts/4,3*npnts/4]=CenteringPathX[npnts/4]-RampSpeedV*(x-npnts/4)/RampRate
+	CenteringPathX[3*npnts/4,npnts-1]=CenteringPathX[3*npnts/4]+RampSpeedV*(x-3*npnts/4)/RampRate
+	
+	CenteringPathY[0,npnts/4]=RampSpeedV*x/RampRate
+	CenteringPathY[npnts/4,3*npnts/4]=CenteringPathY[npnts/4]-RampSpeedV*(x-npnts/4)/RampRate
+	CenteringPathY[3*npnts/4,npnts-1]=CenteringPathY[3*npnts/4]+RampSpeedV*(x-3*npnts/4)/RampRate
+	
+	duplicate/o CenteringPathX PathXOut
+	duplicate/o CenteringPathY PathYOUt
+	return (RampTime)
+
+end

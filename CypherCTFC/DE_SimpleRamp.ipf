@@ -52,9 +52,7 @@ Static Function LoadCTFCparms(RampSettings)
 			MoleculeTrigger=0 //Is Ignored anyway
 			RetractTrigRel="Relative Start" //Is ignored anyway
 			MoleculeTrigger=str2num(RampSettings[%RetractDistance][0])*1e-9+str2num(RampSettings[%RetractDistance][0])*1e-12/GV("SpringConstant")
-			print MoleculeTrigger
 			MoleculeTrigger= -1*MoleculeTrigger/GV("ZPiezoSens")  
-			print MoleculeTrigger
 			break
 		case "ZSensor":
 			MoleculeTrigger=str2num(RampSettings[%RetractDistance][0])*1e-9+str2num(RampSettings[%SurfaceTrigger][0])*1e-12/GV("SpringConstant")  //Add the approximate distance from the surface we need.
@@ -113,21 +111,45 @@ End //LoadCTFCparms
 
 //// DE_SetInWavesFromCTFC(): Setup Inwaves for Force Ramp.  I'm using bank 0 for deflection and z sensor waves.  This is set to event 2. The input wave of RampInfo provides the ramp parameters that have been input
 ////(specifically, this provides the sampling rate and trace length). The input string Experiment provides some string keywords to identify what sort of readout we want, and how to call the data done parameter at the end.
-Static Function SetInWavesFromCTFC(RampInfo,)
+Static Function SetInWavesFromCTFC(RampInfo)
 	wave/t RampInfo
 	wave customwave1
 	variable decirate,total1,newrate
-	
+	variable RunFast,DataLength
 	//This makes and assigns the waves for reading the "fast" portion of the scan, which is the first pull.
 	Make/o/N=(str2num(RampInfo[%SampleRate][0])*str2num(RampInfo[%TotalTime][0])*1000)/O ZSensor_Retract,DefV_Retract 
 	IR_XSetInWavePair(1,"2","Deflection",DefV_Retract,"Cypher.LVDT.Z",ZSensor_Retract,"",50/str2num(RampInfo[%SampleRate][0]))
 	
 
 
+
 	td_wv("Cypher.Input.FastA.Filter.Freq",str2num(RampInfo[%SampleRate][0])/2*1e3)  //This sets the filter to be at half the sample rate for anti-aliasing.
 	td_wv("Arc.Input.A.Filter.Freq",str2num(RampInfo[%SampleRate][0])/2*1e3) //This does the same for the CTFC panel. However, I think it would be wise to filter this channel more.
 	ReadFilterValues(3) //This updates the filter settings in Igor (I think)
+	
+	variable TotalTime=(str2num(rampinfo[%RetractDistance][0])/1000/str2num(rampinfo[%RetractVelocity][0])+str2num(rampinfo[%RetractDwellTime][0]))*1.2
+	controlinfo/W=DE_CTFC_Control popup2
+	string Fast=S_Value
+	//Here's where I will setup all the Fast capture software!
+	if(StringMatch(Fast,"5 MHz")==1)
+		DataLength=5e6*(TotalTime)
+		td_WriteValue("Cypher.Capture.0.Rate", 2)
+		td_WriteValue("Cypher.Capture.0.Length", DataLength)
+		runFast=1
+	elseif(StringMatch(Fast,"2 MHz")==1)
+		runFast=2
+		make/o/n=1 HBDefl,HBZsnsr
+		SetupStream(1,TotalTime,HBDefl,HBZsnsr)
+
+	elseif(StringMatch(Fast,"500 kHz")==1)
+		runFast=2
+		make/o/n=1 HBDefl,HBZsnsr
+		SetupStream(0,TotalTime,HBDefl,HBZsnsr)
+	else
+		runFast=0
+	endif	
 		
+	return runFast	
 end//DE_SetInWavesFromCTFC
 
 ////DE_StartCTFC() Starts the first CTFC each and every time. This is the main one!
@@ -159,7 +181,7 @@ Static Function StartSimpleRamp()
 
 	GrabExistingCTFCParms()
 	LoadCTFCParms(RampSettings)
-	SetInWavesFromCTFC(RampSettings)
+	variable runfast=SetInWavesFromCTFC(RampSettings)
 	
 	Variable Error = 0
 	
@@ -168,7 +190,11 @@ Static Function StartSimpleRamp()
 	Error += td_WS("Event.4","Clear")	
 	Error += td_WS("Event.5","Clear")	
 	Error += td_WS("Event.6","Clear")		
-
+	if(runFast==1)
+		td_WriteValue("Cypher.Capture.0.Trigger", 1)
+	elseif(runFast==2)
+		td_ws("ARC.Events.once", "1")
+	endif
 	Error += td_WS("Event.2","Once")		//Fires event.2, this starts everything!
 	DE_TriggeredForcePanel#UpdateCommandOut("Begin Approach","Add")
 	If (Error > 0)
@@ -187,8 +213,40 @@ Static Function SimpleForceCallback()
 	Wave/T TriggerInfo=root:DE_CTFC:TriggerSettings
 	wave/t RampInfo=root:DE_CTFC:RampSettings
 	wave Zsensor_retract
-	variable zerovolt,Pvol,rep
+	String Command
+	variable ReadFast
 	td_stopinwavebank(1)
+
+	controlinfo/W=DE_CTFC_Control popup2
+	string Fast=S_Value
+	if(StringMatch(Fast,"No")!=1)
+		ReadFast=DE_CheckFast("Access 5 MHz","5 MHz Check")
+ 		//	ReadFast=1
+		if(ReadFast!=4)
+			Command="Glide done: Accessing High Bandwidth"
+			DE_TriggeredForcePanel#UpdateCommandOut(Command,"Replace")
+			ReadHighBandwidth(ReadFast)
+			//DE_MAPFastCaptureCallback("Read",ReadFast)
+						
+		else
+			DE_SimpleRamp#Repeat()
+		endif
+			
+	else
+		DE_SimpleRamp#Repeat()
+	endif
+
+				
+End //DE_CTFCCB_FE_Halt
+
+Static Function Repeat() 
+	Wave/T TriggerInfo=root:DE_CTFC:TriggerSettings
+	td_ReadGroup("ARC.CTFC",TriggerInfo)
+	Wave/T TriggerInfo=root:DE_CTFC:TriggerSettings
+	wave/t RampInfo=root:DE_CTFC:RampSettings
+	wave Zsensor_retract
+	variable zerovolt,Pvol,rep
+
 	zerovolt=(Zsensor_retract(str2num(TriggerInfo[%TriggerTime1]))-str2num(RampInfo[%SurfaceTrigger][0])*1e-12/GV("SpringConstant")/GV("ZLVDTSENS"))
 	PVol=Zerovolt-str2num(RampInfo[%StartDistance][0])*1e-9/GV("ZLVDTSEns")
 	DE_SimpleRamp#UpdatePlot()
@@ -197,6 +255,8 @@ Static Function SimpleForceCallback()
 	DE_RamptoVol(PVol,"Start","DE_Simpleramp#LoopRepeater(\\\""+num2str(rep)+"\\\")")
 				
 End //DE_CTFCCB_FE_Halt
+
+
 
 
 ////--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -290,9 +350,12 @@ Static function UpdatePlot()
 	DoUpdate/W=DE_CTFC_Control#MostRecent
 					
 	duplicate/o root:DE_CTFC:DefV_Retract root:DE_CTFC:MenuStuff:Display_SMDefV_1
+	wavetransform/o zapNaNs root:DE_CTFC:MenuStuff:Display_SMDefV_1
+
 	controlinfo/W=DE_CTFC_Control CTFCsetvar0
 	v_value=floor(v_value/2)*2+1
 	if(v_value<2*numpnts(root:DE_CTFC:MenuStuff:Display_SMDefV_1))
+
 		Smooth/S=2 (v_value), root:DE_CTFC:MenuStuff:Display_SMDefV_1
 		ModifyGraph/W=DE_CTFC_Control#Smoothed hideTrace(Display_SMDefV_1)=0
 	else
