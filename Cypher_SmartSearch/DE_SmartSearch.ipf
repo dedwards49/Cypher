@@ -121,7 +121,9 @@ Static Function LastWaveHit()
 	wavestats/Q ForceWave
 	variable MaxForce=v_min
 	Variable MaxForceLocation=ZWave[v_minRowLoc]
-	if(MaxForce>ForceMin||MaxForceLocation>SurfaceEstimate-SepMin)
+	if(MaxForce<-1*ForceMin&&MaxForceLocation<SurfaceEstimate-SepMin)
+			print "A Hit!"
+			print MaxForce
 		return 1
 	else
 		return 0
