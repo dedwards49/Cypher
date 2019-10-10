@@ -101,11 +101,6 @@ Static Function FECDone()
 	
 	endif
 	
-	
-	
-
-
-
 end
 
 Static Function LastWaveHit()
