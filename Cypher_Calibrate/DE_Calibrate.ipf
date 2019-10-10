@@ -168,9 +168,9 @@ Static Function Done()
 	Settings[%MinPosition]=num2str(imag(positions))
 
 	if(str2num(Settings[%CurrentSpot])!=0)
-		SelectInvolRegion()
+		//SelectInvolRegion()
 	else
-		CalculateInvols()
+		//CalculateInvols()
 	endif
 
 
