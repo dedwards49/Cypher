@@ -43,7 +43,7 @@ wave/T Settings=root:DE_Calibrate:CalibrateSettings
 	SetDimLabel 0,12, StartInvolsTime,Settings
 	SetDimLabel 0,13, EndInvolsTime,Settings
 	Settings[%TotalTime]="25"
-	Settings[%Callback]="DE_Calibrate#Done"
+	Settings[%Callback]="DE_Calibrate#Done()"
 	Settings[%MaxPosition]="0"
 	Settings[%MinPosition]="0"
 	Settings[%CurrentSpot]="0"
@@ -186,7 +186,9 @@ Static Function Done()
 	wave DEfWave=root:DE_Calibrate:DefV_Calibrate 
 	Wave/T Settings=root:DE_Calibrate:CalibrateSettings
 	
+	Wave/T TriggerInfo=root:DE_Calibrate:TriggerSettings
 
+	variable SurfaceTriggerTime=str2num(TriggerInfo[%TriggerTime1])
 	td_stopinwavebank(1)
 	wavetransform/o zapNaNs ZWave
 	wavetransform/o zapNaNs DEfWave
@@ -194,13 +196,15 @@ Static Function Done()
 	String ZName="root:DE_Calibrate:Current:ZSnsr_"+Settings[%CurrentSpot]
 	duplicate/o DEfWave $DName
 	duplicate/o ZWave $ZName
-	
-	
+	duplicate/o DEfWave ZColor
+	ZColor[0,x2pnt(DEfWave,SurfaceTriggerTime)]=3
+	ZColor[x2pnt(DEfWave,SurfaceTriggerTime),]=-7
+
 	variable/C Positions=FindMaxandMin()
 	Settings[%MaxPosition]=num2str(real(positions))
 	Settings[%MinPosition]=num2str(imag(positions))
 
-	if(str2num(Settings[%CurrentSpot])!=0)
+	if(str2num(Settings[%CurrentSpot])==0)
 		SelectInvolRegion()
 	else
 	endif
@@ -323,19 +327,26 @@ Static Function SelectInvolRegion()
 	variable CsrTime1,CsrTime2
 
 	variable SurfaceTriggerTime=str2num(TriggerInfo[%TriggerTime1])
-	variable ApproximateSurfaceTime=str2num(Settings[%SurfaceForce])*1e-12/gv("SpringConstant")/str2num(Settings[%ApproachSpeed])
+	variable ApproximateSurfaceTime=str2num(Settings[%SurfaceForce])*1e-12/gv("SpringConstant")/str2num(Settings[%ApproachSpeed])/1e-6
 
 	duplicate/o/R=(0,SurfaceTriggerTime) DEfWave root:DE_Calibrate:AppDef
 	duplicate/o/R=(0,SurfaceTriggerTime) ZWave root:DE_Calibrate:AppZSn
+	duplicate/o/R=(SurfaceTriggerTime,) DEfWave root:DE_Calibrate:RetDef
+	duplicate/o/R=(SurfaceTriggerTime,) ZWave root:DE_Calibrate:RetZSn
+	
 	wave AppDef=root:DE_Calibrate:AppDef
 	wave AppZSn=root:DE_Calibrate:AppZSn
-
+	wave RetDef=root:DE_Calibrate:RetDef
+	wave RetZSn=root:DE_Calibrate:RetZSn
+	
 	DoWindow $"InvolsSelect"
 	if (V_Flag==1)
 		killwindow $"InvolsSelect"	
 	endif
 	Display/N=InvolsSelect AppDef vs AppZSn
-	SetAxis/W=InvolsSelect bottom (SurfaceTriggerTime-2*ApproximateSurfaceTime),SurfaceTriggerTime
+	Appendtograph/W=InvolsSelect RetDef vs RetZSn
+	ModifyGraph/W=InvolsSelect rgb(RetDef)=(0,0,52224)
+	SetAxis/W=InvolsSelect bottom AppZSn(SurfaceTriggerTime-2*ApproximateSurfaceTime),(AppZSn(SurfaceTriggerTime)+1e-8)
 	SetAxis/A=2/W=InvolsSelect left
 	Cursor/W=InvolsSelect A  AppDef  (SurfaceTriggerTime-ApproximateSurfaceTime)
 	Cursor/W=InvolsSelect B  AppDef  SurfaceTriggerTime
@@ -364,8 +375,9 @@ Static Function CalculateInvols()
 	duplicate/free/r=(csrTime1,csrTime2) ZWave	ZFree
 	CurveFit/Q/W=2/NTHR=0 line  DefFree /X=ZFree
 	wave W_coef,W_sigma
-	Results[%Invols][dimsize(Results,1)-1]=w_coef[1]
-	ForceSetVarFunc("DisplaySpringConstantSetVar_1",w_coef[1],num2str(w_coef[1]),  "MasterVariablesWave[%DisplaySpringConstant][%Value]")
+	variable Invols=GV("Zlvdtsens")/w_coef[1]*1e9
+	Results[%Invols][dimsize(Results,1)-1]=Invols
+	ForceSetVarFunc("InvOLSSetVar_2",Invols,num2str(Invols)+"nm/V",  "MasterVariablesWave[%Invols][%Value]")
 	killwaves W_coef,W_sigma
 end
 
@@ -548,7 +560,7 @@ Static Function DE_UserCursorAdjust(graphName,autoAbortSecs)
 	DrawText 21,20,"Adjust the cursors and then"
 	DrawText 21,40,"Click Continue."
 	Button button0,pos={80,58},size={92,20},title="Continue"
-	Button button0,proc=UserCursorAdjust_ContButtonProc
+	Button button0,proc=DE_Calibrate#UserCursorAdjust_ContButtonProc
 	Variable didAbort= 0
 	if( autoAbortSecs == 0 )
 		PauseForUser tmp_PauseforCursor,$graphName
@@ -580,6 +592,13 @@ Static Function DE_UserCursorAdjust(graphName,autoAbortSecs)
 	return didAbort
 End
 
+Static Function UserCursorAdjust_ContButtonProc(ctrlName) : ButtonControl
+	String ctrlName
+
+	DoWindow/K tmp_PauseforCursor				// Kill self
+End
+
+
 STATIC Function SetVarProc(sva) : SetVariableControl
 	STRUCT WMSetVariableAction &sva
 
@@ -605,6 +624,7 @@ Static Function ButtonProc(ba) : ButtonControl
 		case 2: // mouse up
 			StartXandY()
 			ResetSettingsWave()
+			StartNewLeverl()
 			StartCalibrate()
 			break
 		case -1: // control being killed
