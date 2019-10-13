@@ -28,7 +28,8 @@ Static Function InitializeSettings()
 	Settings={"0.4","0.2","0.4","500","25","50","5","0.5","DE_Calibrate#Done()","0","0","0","0","0"}
 	
 
-	
+	Make/o/N=(0)/O root:DE_Calibrate:ZSensor_Calibrate,root:DE_Calibrate:DefV_Calibrate,root:DE_Calibrate:ZColor,root:DE_Calibrate:ZFree,root:DE_Calibrate:DFree
+
 	
 
 end
@@ -54,18 +55,22 @@ end
 
 Static Function StartNewLeverl()
 	NewDataFolder/O root:DE_Calibrate:Current
-	make/o/n=(9,0) root:DE_Calibrate:Current:Results
+	make/o/n=(12,0) root:DE_Calibrate:Current:Results
 	wave Results=root:DE_Calibrate:Current:Results
 
-	SetDimLabel 0,0,Invols,Results
-	SetDimLabel 0,1,TopPos,Results
-	SetDimLabel 0,2,TopSpringConstant,Results
-	SetDimLabel 0,3,TopFrequency,Results
-	SetDimLabel 0,4, TopQValue,Results
-	SetDimLabel 0,5,BotPos,Results
-	SetDimLabel 0,6,BotSpringConstant,Results
-	SetDimLabel 0,7,BotFrequency,Results
-	SetDimLabel 0,8, BotQValue,Results
+	SetDimLabel 0,0,SumSignal,Results
+	SetDimLabel 0,1,Invols,Results
+	SetDimLabel 0,2,CsrPnt1,Results
+	SetDimLabel 0,3,CsrPnt2,Results
+
+	SetDimLabel 0,4,TopPos,Results
+	SetDimLabel 0,5,TopSpringConstant,Results
+	SetDimLabel 0,6,TopFrequency,Results
+	SetDimLabel 0,7, TopQValue,Results
+	SetDimLabel 0,8,BotPos,Results
+	SetDimLabel 0,9,BotSpringConstant,Results
+	SetDimLabel 0,10,BotFrequency,Results
+	SetDimLabel 0,11, BotQValue,Results
 end
 
 Static Function GrabExistingCTFCparms()
@@ -86,6 +91,8 @@ End //DE_GrabExistingCTFCparms()
 	ApproachSpeed = str2num(Settings[%ApproachSpeed][0])*1e-6/GV("ZPiezoSens") //set the approach speed by converting from um/s to V/s. Note this is positive to approach the surface.
 	RetractSpeed = -1*str2num(Settings[%RetractSpeed][0])*1e-6/GV("ZPiezoSens") //set the approach speed by converting from um/s to V/s. Note this is positive to approach the surface.
 	SurfaceTrigger = str2num(Settings[%SurfaceForce][0])*1e-12/GV("InvOLS")/GV("SpringConstant")   //The desired deflection (converted to Volts) to reach at the surface
+	
+	print SurfaceTrigger
 	TriggerInfo[%RampChannel] = "Output.Z"
 	TriggerInfo[%RampOffset1] = num2str(150) //Max Z Piezo (in volts) on initial push
 	TriggerInfo[%RampSlope1] = num2str(ApproachSpeed)  //Z Piezo Volts/s
@@ -153,8 +160,7 @@ Static Function StartCalibrate()
 	wave Results=root:DE_Calibrate:Current:Results
 
 	if(str2num(Settings[%CurrentSpot])!=0)
-		insertpoints/M=1 dimsize(Results,1),1, Results
-
+		insertpoints/M=1 dimsize(Results,1)+1,1, Results
 	endif
 //
 	If(abs(Td_rv("Deflection"))>8)  //If you deflection is above a couple of volts, we freak out!
@@ -173,6 +179,8 @@ Static Function StartCalibrate()
 	Error += td_WS("Event.4","Clear")	
 	Error += td_WS("Event.5","Clear")	
 	Error += td_WS("Event.6","Clear")		
+		DE_ZeroPD()
+
 	Error += td_WS("Event.2","Once")		//Fires event.2, this starts everything!
 //	DE_TriggeredForcePanel#UpdateCommandOut("Begin Approach","Add")
 	If (Error > 0)
@@ -185,10 +193,9 @@ Static Function Done()
 	wave ZWave=root:DE_Calibrate:ZSensor_Calibrate
 	wave DEfWave=root:DE_Calibrate:DefV_Calibrate 
 	Wave/T Settings=root:DE_Calibrate:CalibrateSettings
-	
+	GrabExistingCTFCparms()
 	Wave/T TriggerInfo=root:DE_Calibrate:TriggerSettings
 
-	variable SurfaceTriggerTime=str2num(TriggerInfo[%TriggerTime1])
 	td_stopinwavebank(1)
 	wavetransform/o zapNaNs ZWave
 	wavetransform/o zapNaNs DEfWave
@@ -196,7 +203,9 @@ Static Function Done()
 	String ZName="root:DE_Calibrate:Current:ZSnsr_"+Settings[%CurrentSpot]
 	duplicate/o DEfWave $DName
 	duplicate/o ZWave $ZName
-	duplicate/o DEfWave ZColor
+	duplicate/o DEfWave root:DE_Calibrate:ZColor
+		variable SurfaceTriggerTime=str2num(TriggerInfo[%TriggerTime1])
+	wave ZColor=root:DE_Calibrate:ZColor
 	ZColor[0,x2pnt(DEfWave,SurfaceTriggerTime)]=3
 	ZColor[x2pnt(DEfWave,SurfaceTriggerTime),]=-7
 
@@ -218,8 +227,9 @@ end
 
 Static Function ToMax()
 
-	print td_rv("Cypher.LVDT.Z")
 	SetupThermals("DE_Calibrate#MaxDone()")
+			DE_ZeroPD()
+
 	DoThermalFunc("DoThermalButton_1")
 end
 
@@ -236,8 +246,9 @@ Static Function MaxDone()
 end
 
 Static Function ToMin()
-	print td_rv("Cypher.LVDT.Z")
 	SetupThermals("DE_Calibrate#MinDone()")
+			DE_ZeroPD()
+
 	DoThermalFunc("DoThermalButton_1")
 
 end
@@ -260,6 +271,7 @@ end
 Static Function DoneorNot()
 	Wave/T Settings=root:DE_Calibrate:CalibrateSettings
 	variable NewSpot=str2num(Settings[%CurrentSpot])+1
+
 	if(newspot>=str2num(Settings[%TotalSpots]))
 		FullCycleDone()
 	else
@@ -275,8 +287,8 @@ Static Function MoveStageandGo()
 	Wave/T Settings=root:DE_Calibrate:CalibrateSettings
 	variable StepSize=str2num(Settings[%StepSize])
 	variable direction=(floor(enoise(2)))+2
-	Variable TargetPosition=td_rv("PIDSLoop.0.Setpoint")+StepSize*1e-9/GV("XLVDTSENS")
-	td_SetRamp(2, "PIDSLoop.0.Setpoint", 0, str2num(Settings[%MinPosition]), "", 0, 0, "", 0, 0, "DE_Calibrate#StartCalibrate()")
+	Variable TargetPosition=td_rv("PIDSLoop.1.Setpoint")+StepSize*1e-9/GV("YLVDTSENS")
+	td_SetRamp(2, "PIDSLoop.1.Setpoint", 0, str2num(Settings[%MinPosition]), "", 0, 0, "", 0, 0, "DE_Calibrate#StartCalibrate()")
 end
 
 Static Function FullCycleDone()
@@ -285,6 +297,8 @@ Static Function FullCycleDone()
 	string basename="root:DE_Calibrate:"
 	string testfolder
 	variable n=-1
+	ReturnStatsToPrompt(root:DE_calibrate:Current:results)
+	
 	duplicate/T/o Settings root:DE_Calibrate:Current:CalibrateSettings 
 	do
 		n+=1
@@ -316,49 +330,32 @@ Static Function FullCycleDone()
 	LabelFolder="Save_"+num2str(n)
 	print "You failed to give a unique name, so we've saved this folder as: "+LabelFolder
 	renamedatafolder root:DE_calibrate:Current $LabelFolder
-
+	KillThermals()
 end
 
 Static Function SelectInvolRegion()
 	wave ZWave=root:DE_Calibrate:ZSensor_Calibrate
 	wave DEfWave=root:DE_Calibrate:DefV_Calibrate 
+	wave ColorWave=root:DE_Calibrate:ZColor
+
 	Wave/T TriggerInfo=root:DE_Calibrate:TriggerSettings
 	Wave/T Settings=root:DE_Calibrate:CalibrateSettings
 	variable CsrTime1,CsrTime2
-
 	variable SurfaceTriggerTime=str2num(TriggerInfo[%TriggerTime1])
+
 	variable ApproximateSurfaceTime=str2num(Settings[%SurfaceForce])*1e-12/gv("SpringConstant")/str2num(Settings[%ApproachSpeed])/1e-6
+	ModifyGraph/W=DE_Calibrate#FEC zColor($nameofwave(DEfWave))={ColorWave,-10,10,Spectrum,0}
+	SetAxis/W=DE_Calibrate#FEC bottom (ZWave(SurfaceTriggerTime-2*ApproximateSurfaceTime)),(ZWave(SurfaceTriggerTime))
+	SetAxis/A=2/W=DE_Calibrate#FEC left
+	Cursor/W=DE_Calibrate#FEC A  $nameofwave(DEfWave)  (SurfaceTriggerTime-ApproximateSurfaceTime)
+	Cursor/W=DE_Calibrate#FEC B  $nameofwave(DEfWave)  SurfaceTriggerTime
+	DE_UserCursorAdjust("DE_Calibrate",0)
 
-	duplicate/o/R=(0,SurfaceTriggerTime) DEfWave root:DE_Calibrate:AppDef
-	duplicate/o/R=(0,SurfaceTriggerTime) ZWave root:DE_Calibrate:AppZSn
-	duplicate/o/R=(SurfaceTriggerTime,) DEfWave root:DE_Calibrate:RetDef
-	duplicate/o/R=(SurfaceTriggerTime,) ZWave root:DE_Calibrate:RetZSn
-	
-	wave AppDef=root:DE_Calibrate:AppDef
-	wave AppZSn=root:DE_Calibrate:AppZSn
-	wave RetDef=root:DE_Calibrate:RetDef
-	wave RetZSn=root:DE_Calibrate:RetZSn
-	
-	DoWindow $"InvolsSelect"
-	if (V_Flag==1)
-		killwindow $"InvolsSelect"	
-	endif
-	Display/N=InvolsSelect AppDef vs AppZSn
-	Appendtograph/W=InvolsSelect RetDef vs RetZSn
-	ModifyGraph/W=InvolsSelect rgb(RetDef)=(0,0,52224)
-	SetAxis/W=InvolsSelect bottom AppZSn(SurfaceTriggerTime-2*ApproximateSurfaceTime),(AppZSn(SurfaceTriggerTime)+1e-8)
-	SetAxis/A=2/W=InvolsSelect left
-	Cursor/W=InvolsSelect A  AppDef  (SurfaceTriggerTime-ApproximateSurfaceTime)
-	Cursor/W=InvolsSelect B  AppDef  SurfaceTriggerTime
-	DE_UserCursorAdjust("InvolsSelect",0)
-
-	CsrTime1=pnt2x(AppZSn,pcsr(A,"InvolsSelect"))
-	CsrTime2=pnt2x(AppZSn,pcsr(B,"InvolsSelect"))
+	CsrTime1=pnt2x(ZWave,pcsr(A,"DE_Calibrate#FEC"))
+	CsrTime2=pnt2x(ZWave,pcsr(B,"DE_Calibrate#FEC"))
 	Settings[%StartInvolsTime]=num2str(SurfaceTriggerTime-CsrTime1)
 	Settings[%EndInvolsTime]=num2str(SurfaceTriggerTime-CsrTime2)
-	killwindow $"InvolsSelect"	
 
-	killwaves AppDef,AppZSn
 end
 
 Static Function CalculateInvols()
@@ -366,19 +363,43 @@ Static Function CalculateInvols()
 	wave DEfWave=root:DE_Calibrate:DefV_Calibrate 
 	Wave/T Settings=root:DE_Calibrate:CalibrateSettings
 	Wave/T TriggerInfo=root:DE_Calibrate:TriggerSettings
+	wave ColorWave=root:DE_Calibrate:ZColor
+
 	wave Results=root:DE_Calibrate:Current:Results
 
 	variable SurfaceTriggerTime=str2num(TriggerInfo[%TriggerTime1])
+
+	variable ApproximateSurfaceTime=str2num(Settings[%SurfaceForce])*1e-12/gv("SpringConstant")/str2num(Settings[%ApproachSpeed])/1e-6
+
 	variable CsrTime1=SurfaceTriggerTime-str2num(Settings[%StartInvolsTime])
 	variable CsrTime2=SurfaceTriggerTime-str2num(Settings[%EndInvolsTime])
-	duplicate/free/r=(csrTime1,csrTime2) DEfWave DefFree
-	duplicate/free/r=(csrTime1,csrTime2) ZWave	ZFree
-	CurveFit/Q/W=2/NTHR=0 line  DefFree /X=ZFree
+	
+	duplicate/o/r=(csrTime1,csrTime2) DEfWave root:DE_Calibrate:DefFree
+	duplicate/o/r=(csrTime1,csrTime2) ZWave	root:DE_Calibrate:ZFree
+	wave ZFree=root:DE_Calibrate:ZFree
+	wave DefFree=root:DE_Calibrate:DefFree
+
+	//ModifyGraph/W=Invols zColor($nameofwave(DefFree))={ColorWave,-10,10,Spectrum,0}
+	ModifyGraph/W=DE_Calibrate#FEC rgb($nameofwave(DefFree))=(0,0,0),lsize($nameofwave(DefFree))=1.5
+	SetAxis/W=DE_Calibrate#FEC bottom (ZWave(SurfaceTriggerTime-1.5*ApproximateSurfaceTime)),(ZWave(SurfaceTriggerTime)+100e-9/GV("ZLVDTSENS"))
+	SetAxis/A=2/W=DE_Calibrate#FEC left
+	
+	Cursor/W=DE_Calibrate#FEC A  $nameofwave(DEfWave)  CsrTime1
+	Cursor/W=DE_Calibrate#FEC B  $nameofwave(DEfWave)  CsrTime2
+	
+	CurveFit/Q/W=2/NTHR=0 line  DefFree /X=ZFree/D
+	ModifyGraph/W=DE_Calibrate#FEC  lsize(fit_DefFree)=3,rgb(fit_DefFree)=(32768,65280,0)
 	wave W_coef,W_sigma
 	variable Invols=GV("Zlvdtsens")/w_coef[1]*1e9
 	Results[%Invols][dimsize(Results,1)-1]=Invols
+	Results[%SumSignal][dimsize(Results,1)-1]=td_rv("Input.X")
+	Results[%SumSignal][dimsize(Results,1)-1]=td_rv("Input.X")
+	Results[%CsrPnt1][dimsize(Results,1)-1]=x2pnt(DEfWave,CsrTime1)
+	Results[%CsrPnt2][dimsize(Results,1)-1]=x2pnt(DEfWave,CsrTime2)
+
 	ForceSetVarFunc("InvOLSSetVar_2",Invols,num2str(Invols)+"nm/V",  "MasterVariablesWave[%Invols][%Value]")
 	killwaves W_coef,W_sigma
+
 end
 
 Static Function SaveThermal(ToporBottom)
@@ -420,7 +441,7 @@ end
 
 Static Function SetupThermals(Callback)
 	String Callback
-	ThermalSetVarFunc("ThermalSamplesLimitSetVar_1",50,"050","ThermalVariablesWave[%ThermalSamplesLimit][%Value]")
+	ThermalSetVarFunc("ThermalSamplesLimitSetVar_1",300,"300","ThermalVariablesWave[%ThermalSamplesLimit][%Value]")
 	
 	String Graphstr = "ARCallbackPanel"
 	DoWindow $GraphStr
@@ -447,6 +468,24 @@ Static Function SetupThermals(Callback)
 	killwindow ThermalOpParmPanel
 end
 
+Static Function KillThermals()
+	String Callback
+	
+	String Graphstr = "ARCallbackPanel"
+	DoWindow $GraphStr
+	if (!V_Flag)
+		MakePanel(GraphStr)
+	endif
+	ARExecuteControl("ARUserCallbackMasterCheck_1",GraphStr,0,"")
+	
+	//turn on Force callbacks.
+	ARExecuteControl("ARUserCallbackThermDoneCheck_1",GraphStr,0,"")
+	
+	//set the callback
+	ARExecuteControl("ARUserCallbackThermDoneSetVar_1",GraphStr,nan,Callback)
+
+	killwindow ThermalOpParmPanel
+end
 Static Function/C FindMaxandMin()
 	Wave/T Settings=root:DE_Calibrate:CalibrateSettings
 	wave ZWave=root:DE_Calibrate:ZSensor_Calibrate
@@ -455,7 +494,7 @@ Static Function/C FindMaxandMin()
 	RetractSpeed = str2num(Settings[%RetractSpeed][0])*1e-6//set the approach speed by converting from um/s to V/s. Note this is positive to approach the surface.
 	variable waveLength=700e-9
 	variable cutpntLength=700e-9/RetractSpeed/dimdelta(ZWave,0)
-
+	print dimdelta(ZWave,0)
 	duplicate/free/r=[numpnts(ZWave)-1-cutpntLength,] ZWave WZsen_fit
 	duplicate/free/r=[numpnts(DEfWave)-1-cutpntLength,] DEfWave WDef_fit
 
@@ -637,7 +676,7 @@ End
 
 Window DE_Calibrate() : Panel
 	PauseUpdate; Silent 1		// building window...
-	NewPanel/N=DE_Calibrate /W=(150,77,450,277)
+	NewPanel/N=DE_Calibrate /W=(150,77,950,800)
 	DE_Calibrate#InitializeSettings()
 	SetVariable DE_Calibrate_AppVel,pos={1,2},size={172,16},proc=DE_Calibrate#SetVarProc,title="Approach Velocity (µm/s)"
 	SetVariable DE_Calibrate_AppVel,value= root:DE_Calibrate:CalibrateSettings[%ApproachSpeed]
@@ -656,9 +695,82 @@ Window DE_Calibrate() : Panel
 	SetVariable DE_Calibrate_StepSize,pos={1,150},size={172,16},proc=DE_Calibrate#SetVarProc,title="Step Size (µm)"
 	SetVariable DE_Calibrate_StepSize,value= root:DE_Calibrate:CalibrateSettings[%StepSize]
 	Button DE_Calibrate_StartButt title="Start Calibrating",pos={1,175},size={172,16},proc=DE_Calibrate#ButtonProc
+	
+	
+
+	//wave ColorWave=root:DE_Calibrate:ZColor
+	display/W=(25,200,400,500)/HOST=DE_Calibrate/N=FEC root:DE_Calibrate:DefV_Calibrate vs root:DE_Calibrate:ZSensor_Calibrate
+	appendtograph/W=DE_Calibrate#FEC root:DE_Calibrate:DefFree vs root:DE_Calibrate:ZFree
+	ModifyGraph/W=DE_Calibrate#FEC zColor($nameofwave( root:DE_Calibrate:DefV_Calibrate))={ root:DE_Calibrate:ZColor,-10,10,Spectrum,0}
+	display/W=(450,200,800,500)/HOST=DE_Calibrate/N=Thermal :packages:MFP3D:Tune:TotalPSD,:packages:MFP3D:Tune:ThermalFit,:packages:MFP3D:Tune:FitWidthWave
+	•ModifyGraph/W=DE_Calibrate#Thermal log=1
+	ModifyGraph/W=DE_Calibrate#Thermal rgb(TotalPSD)=(0,0,0),rgb(ThermalFit)=(0,0,65280);DelayUpdate
+	ModifyGraph/W=DE_Calibrate#Thermal mode(FitWidthWave)=1
+	ModifyGraph/W=DE_Calibrate#Thermal lsize(ThermalFit)=2
+
+//	
 EndMacro
 
 
 Menu "Calibration"
 	"initialize",DE_Calibrate()
+end
+
+
+Static function DE_ZeroPD()
+	//String Command="Zeroing PD"
+	//DE_TriggeredForcePanel#UpdateCommandOut(Command,"Replace")
+	
+	td_WriteString("Cypher.Head.ADCZeroChannel","Deflection") //This starts zeroing the deflection signal.
+	Variable WeRunnin, DeflValue, Counter = 0, 	MaxCount=500 //Will try to get zero for 500 counts at most. but will click out early if Werunning (which checks whether the ARC has zeroed happily).
+	FuncRef DoNothing UpdateFunc=$"TinyLittleFastFunction"   //This is just a little function that runs in circles to eat up processor time while we wait for it to zero.
+
+	Do
+		
+		UpdateFunc()
+		Counter += 1
+		DoUpdate
+		WeRunnin = td_ReadValue("Cypher.Head.ADCZeroChannel")
+	
+	while (!IsNan(WeRunnin) && WeRunnin && (Counter < MaxCount))  //Runs until td_ReadValue("Cypher.Head.ADCZeroChannel") changes (without going NaN) or until we reach the max.
+						
+end  //DE_ZeroPD
+
+Static Function ReturnStatsToPrompt(ResultsWave)
+
+	wave REsultswave
+	make/free/n=(dimsize(ResultsWave,1)) Invols,Topk,TopQ,topf,BottomK,BottomQ,Bottomf
+
+	Invols[]=REsultswave[1][p]
+	Topk[]=REsultswave[5][p]
+	TopQ=REsultswave[7][p]
+	topf=REsultswave[6][p]
+	BottomK=REsultswave[9][p]
+	BottomQ=REsultswave[11][p]
+	Bottomf=REsultswave[10][p]
+	wavestats/Q Invols
+	print "Invols = "+num2str(V_AVG)+" +/- "+ num2str(V_SDev)+" nm/v"
+	
+	Concatenate/O {Topk,BottomK},Allk	
+	wavestats/Q Allk
+	print "Spring constant = "+num2str(V_AVG*1e12)+" +/- "+ num2str(V_SDev*1e12)+" pN/nm"
+	Concatenate/O {TopQ,BottomQ},AllQ	
+	wavestats/Q AllQ
+	print "Q values = "+num2str(V_AVG)+" +/- "+ num2str(V_SDev)
+	Concatenate/O {Topf,Bottomf},Allf	
+	wavestats/Q Allf
+	print "Resonance = "+num2str(V_AVG/1e3)+" +/- "+ num2str(V_SDev/1e3)+" kHz"
+	killwaves Allk,allq,allf
+	wavestats/Q Topk
+	print "Just Top k = "+num2str(V_AVG*1e12)+" +/- "+ num2str(V_SDev*1e12)+" pN/nm"
+	//wavestats/Q TopQ
+	//print "TopQ= "+num2str(V_AVG)+" +/- "+ num2str(V_SDev)
+	//wavestats/Q Topf
+	//print "topf= "+num2str(V_AVG/1e3)+" +/- "+ num2str(V_SDev/1e3)+" kHz"
+	wavestats/Q BottomK
+	print "Just bottom k = "+num2str(V_AVG*1e12)+" +/- "+ num2str(V_SDev*1e12)+" pN/nm"
+	//wavestats/Q BottomQ
+	//print "BottomQ= "+num2str(V_AVG)+" +/- "+ num2str(V_SDev)
+	//wavestats/Q Bottomf
+	//print "Bottomf= "+num2str(V_AVG/1e3)+" +/- "+ num2str(V_SDev/1e3)+" kHz"
 end
