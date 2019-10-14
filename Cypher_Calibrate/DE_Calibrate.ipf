@@ -92,7 +92,6 @@ End //DE_GrabExistingCTFCparms()
 	RetractSpeed = -1*str2num(Settings[%RetractSpeed][0])*1e-6/GV("ZPiezoSens") //set the approach speed by converting from um/s to V/s. Note this is positive to approach the surface.
 	SurfaceTrigger = str2num(Settings[%SurfaceForce][0])*1e-12/GV("InvOLS")/GV("SpringConstant")   //The desired deflection (converted to Volts) to reach at the surface
 	
-	print SurfaceTrigger
 	TriggerInfo[%RampChannel] = "Output.Z"
 	TriggerInfo[%RampOffset1] = num2str(150) //Max Z Piezo (in volts) on initial push
 	TriggerInfo[%RampSlope1] = num2str(ApproachSpeed)  //Z Piezo Volts/s
@@ -264,7 +263,6 @@ Static Function MinDone()
 	SaveThermal("Bottom")
 	td_SetRamp(.1, "Output.Z", 0, -10, "", 0, 0, "", 0, 0, "DE_Calibrate#DoneorNot()")
 
-	print "This worked you fat fuck"
 end
 
 
@@ -298,7 +296,7 @@ Static Function FullCycleDone()
 	string testfolder
 	variable n=-1
 	ReturnStatsToPrompt(root:DE_calibrate:Current:results)
-	
+	KillThermals()
 	duplicate/T/o Settings root:DE_Calibrate:Current:CalibrateSettings 
 	do
 		n+=1
@@ -481,10 +479,7 @@ Static Function KillThermals()
 	//turn on Force callbacks.
 	ARExecuteControl("ARUserCallbackThermDoneCheck_1",GraphStr,0,"")
 	
-	//set the callback
-	ARExecuteControl("ARUserCallbackThermDoneSetVar_1",GraphStr,nan,Callback)
 
-	killwindow ThermalOpParmPanel
 end
 Static Function/C FindMaxandMin()
 	Wave/T Settings=root:DE_Calibrate:CalibrateSettings
@@ -494,7 +489,6 @@ Static Function/C FindMaxandMin()
 	RetractSpeed = str2num(Settings[%RetractSpeed][0])*1e-6//set the approach speed by converting from um/s to V/s. Note this is positive to approach the surface.
 	variable waveLength=700e-9
 	variable cutpntLength=700e-9/RetractSpeed/dimdelta(ZWave,0)
-	print dimdelta(ZWave,0)
 	duplicate/free/r=[numpnts(ZWave)-1-cutpntLength,] ZWave WZsen_fit
 	duplicate/free/r=[numpnts(DEfWave)-1-cutpntLength,] DEfWave WDef_fit
 
@@ -503,7 +497,6 @@ Static Function/C FindMaxandMin()
 
 	FuncFit/Q/W=2/NTHR=0 linearsin2 W_coef  WDef_fit /X=WZsen_fit
 	variable/C Result= EstimateZeroInRange(WDef_fit,WZsen_fit,W_coef)
-	print/C Result
 	wave W_Sigma
 	killwaves W_coef,W_Sigma
 	return Result
