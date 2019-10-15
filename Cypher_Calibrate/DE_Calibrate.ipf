@@ -28,7 +28,7 @@ Static Function InitializeSettings()
 	Settings={"0.4","0.2","0.4","500","25","50","5","0.5","DE_Calibrate#Done()","0","0","0","0","0"}
 	
 
-	Make/o/N=(0)/O root:DE_Calibrate:ZSensor_Calibrate,root:DE_Calibrate:DefV_Calibrate,root:DE_Calibrate:ZColor,root:DE_Calibrate:ZFree,root:DE_Calibrate:DFree
+	Make/o/N=(0)/O root:DE_Calibrate:ZSensor_Calibrate,root:DE_Calibrate:DefV_Calibrate,root:DE_Calibrate:ZColor,root:DE_Calibrate:ZFree,root:DE_Calibrate:DefFree
 
 	
 
@@ -485,6 +485,11 @@ Static Function/C FindMaxandMin()
 	Wave/T Settings=root:DE_Calibrate:CalibrateSettings
 	wave ZWave=root:DE_Calibrate:ZSensor_Calibrate
 	wave DEfWave=root:DE_Calibrate:DefV_Calibrate 
+	Controlinfo/W=DE_Calibrate DE_Calibrate_FIt
+	variable Special=V_Value
+	if(Special==1)
+		return cmplx(Td_rv("ZSensor"),TD_RV("ZSensor"))
+	endif
 	variable RetractSpeed
 	RetractSpeed = str2num(Settings[%RetractSpeed][0])*1e-6//set the approach speed by converting from um/s to V/s. Note this is positive to approach the surface.
 	variable waveLength=700e-9
@@ -689,7 +694,8 @@ Window DE_Calibrate() : Panel
 	SetVariable DE_Calibrate_StepSize,value= root:DE_Calibrate:CalibrateSettings[%StepSize]
 	Button DE_Calibrate_StartButt title="Start Calibrating",pos={1,175},size={172,16},proc=DE_Calibrate#ButtonProc
 	
-	
+	CheckBox DE_Calibrate_Fit title="Single spot?"
+
 
 	//wave ColorWave=root:DE_Calibrate:ZColor
 	display/W=(25,200,400,500)/HOST=DE_Calibrate/N=FEC root:DE_Calibrate:DefV_Calibrate vs root:DE_Calibrate:ZSensor_Calibrate
@@ -700,6 +706,8 @@ Window DE_Calibrate() : Panel
 	ModifyGraph/W=DE_Calibrate#Thermal rgb(TotalPSD)=(0,0,0),rgb(ThermalFit)=(0,0,65280);DelayUpdate
 	ModifyGraph/W=DE_Calibrate#Thermal mode(FitWidthWave)=1
 	ModifyGraph/W=DE_Calibrate#Thermal lsize(ThermalFit)=2
+	
+	//checkbox DE_Calibrate_Fit
 
 //	
 EndMacro
