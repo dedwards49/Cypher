@@ -48,19 +48,32 @@ Static  function ZeroSetpointOffset(bank)
 
 end
 
-Static Function StepAroundStart(MinBadTouches,MaxGoodTouches,MinForce,MinDistance)
-	variable MinBadTouches,MaxGoodTouches,MinForce,MinDistance
+Static Function StepAroundStart(TrialPulls,MaxSinceHit,MaxIterations,MinForce,MinDistance)
+	variable TrialPulls,MaxSinceHit,MaxIterations,MinForce,MinDistance
 	Wave SpotWave=root:SmartSearch:SpotWave
 	Initialize()
-	make/o/n=7 root:SmartSearch:Info
+	make/o/n=10 root:SmartSearch:Info
 	wave SmartSearchInfo=root:SmartSearch:Info
-	SmartSearchInfo[0]=0 //Current Spot
-	SmartSearchInfo[1]=0 //Empty in Row
-	SmartSearchInfo[2]=0//Hits in Row
-	SmartSearchInfo[3]=MinBadTouches
-	SmartSearchInfo[4]=MaxGoodTouches
-	SmartSearchInfo[5]=MinForce
-	SmartSearchInfo[6]=MinDistance
+	SetDimLabel 0,0,'CurrentPull',SmartSearchInfo
+	SmartSearchInfo[%CurrentPull]=0 
+	SetDimLabel 0,1,'TrialPulls',SmartSearchInfo
+	SmartSearchInfo[%TrialPulls]=TrialPulls //Current Spot
+	SetDimLabel 0,2,'TrialHits',SmartSearchInfo
+	SmartSearchInfo[%TrialHits]=0 //Empty in Row
+	SetDimLabel 0,3,'FoundFlag',SmartSearchInfo
+	SmartSearchInfo[%FoundFlag]=0//Hits in Row
+	SetDimLabel 0,4,'SinceHit',SmartSearchInfo
+	SmartSearchInfo[%SinceHit]=0
+	SetDimLabel 0,5,'MaxSinceHit',SmartSearchInfo
+	SmartSearchInfo[%MaxSinceHit]=MaxSinceHit
+	SetDimLabel 0,6,'MaxIterations',SmartSearchInfo
+	SmartSearchInfo[%MaxIterations]=MaxIterations
+	SetDimLabel 0,7,'MinForce',SmartSearchInfo
+	SmartSearchInfo[%MinForce]=MinForce
+	SetDimLabel 0,8,'MinDistance',SmartSearchInfo
+	SmartSearchInfo[%MinDistance]=MinDistance
+	SetDimLabel 0,9,'CurrentSpot',SmartSearchInfo
+	SmartSearchInfo[%CurrentSpot]=0
 	 ZeroSetpointOffset(0)
 	 ZeroSetpointOffset(1)
 	  
@@ -81,24 +94,38 @@ Static Function StepAroundStart(MinBadTouches,MaxGoodTouches,MinForce,MinDistanc
 end
 
 Static Function FECDone()
-	wave SmartSearchInfo=root:SmartSearch:Info
+	wave SmartInfo=root:SmartSearch:Info
 
-	
 	Variable Hit=LastWaveHit()
-	if(Hit==1)
-		SmartSearchInfo[1]=0
-		SmartSearchInfo[2]+=1
-	else
-		SmartSearchInfo[1]+=1
-		SmartSearchInfo[2]=0
-	
-	endif
+	SmartInfo[%CurrentPull]+=1
+	if(SmartInfo[%FoundFlag]==1)
+		if(Hit==1)
+			SmartInfo[%SinceHit]=0
+		else
+			SmartInfo[%SinceHit]+=1
+		endif
 
-	if(SmartSearchInfo[1]>SmartSearchInfo[3]||SmartSearchInfo[2]>SmartSearchInfo[4])//Too many good or bad touches in a row
-		NextSpot()
-	else
-		Run()
-	
+		if(SmartInfo[%SinceHit]>=SmartInfo[%MaxSinceHit])
+			NextSpot()
+		elseif(SmartInfo[%CurrentPull]>=SmartInfo[%MaxIterations])
+			NextSpot()
+		else
+			Run()
+		endif
+	elseif(SmartInfo[%FoundFlag]==0)
+		SmartInfo[%TrialHits]+=Hit
+
+		if(SmartInfo[%CurrentPull]>=SmartInfo[%TrialPulls])
+			if(Smartinfo[%TrialHits]>0)
+				SmartInfo[%FoundFlag]=1
+				Run()
+			else
+				NextSpot()
+			endif
+		else
+			Run()
+		endif
+
 	endif
 	
 end
@@ -119,6 +146,7 @@ Static Function LastWaveHit()
 	if(MaxForce<-1*ForceMin&&MaxForceLocation<SurfaceEstimate-SepMin)
 			print "A Hit!"
 			print MaxForce
+			print time()
 		return 1
 	else
 		return 0
@@ -133,13 +161,15 @@ Static Function NextSpot()
 	wave SmartSearchInfo=root:SmartSearch:Info
 	wave SpotWave=root:SmartSearch:SpotWave
 	variable spots=dimsize(SpotWave,0)
-	SmartSearchInfo[0]+=1
-	SmartSearchInfo[1]=0
-	SmartSearchInfo[2]=0
+	SmartSearchInfo[%CurrentSpot]+=1
+	SmartSearchInfo[%CurrentPull]=0
+	SmartSearchInfo[%TrialHits]=0
+	SmartSearchInfo[%FoundFlag]=0
+	SmartSearchInfo[%SinceHit]=0
 
 	if(SmartSearchInfo[0]<spots)
 
-		MoveToSpot(SmartSearchInfo[0])
+		MoveToSpot(SmartSearchInfo[%CurrentSpot])
 	else
 		String Graphstr = "ARCallbackPanel"
 		DoWindow $GraphStr

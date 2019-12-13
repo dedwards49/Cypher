@@ -402,7 +402,6 @@ Function DE_StartCTFC(Type)
 
 	if(cmpstr(Type,"Find")!=0&&cmpstr(Type,"Detrend")!=0&&cmpstr(Type,"Run")!=0)
 		print "Unrecognized Experiment Type"
-		print Type
 		return -1
 	
 	endif
@@ -1288,7 +1287,6 @@ end // DE_SaveReg()
 //DE_UpdatePlot
 function DE_UpdatePlot(Desc)
 	string Desc
-	print Desc
 	wave/t RefoldSettings
 	wave/Z DetrendFit
 	if(waveexists(root:DE_CTFC:MenuStuff:Display_DefV_1)==0)

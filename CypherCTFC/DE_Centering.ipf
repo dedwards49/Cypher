@@ -9,6 +9,7 @@
 
 
 Static function StartCentering()
+print "CenterStart"
 	Wave/T RampInfo=root:DE_CTFC:RampSettings
 	Wave/T SlowInfo=root:DE_CTFC:RefoldSettings
 	wave ZsensorVolts_Fast=Zsensor_fast
@@ -89,6 +90,7 @@ Static function StartCentering()
 end
 
 Static Function Init()
+print "CenterInit"
 	wave/t CenteringSettings
 	DE_CEntering#PrepPIDS(10,13)
 	CenteringSettings[%SurfaceLocation][0]=td_rs("ARC.PIDSLoop.5.SetPoint")
@@ -102,14 +104,17 @@ Static Function Init()
 end
 
 Static Function Forced()
+print "Forced"
 	td_ws("Event.11","once")
 
 end 
 Static Function XDone()
+print "XDone"
 	td_ws("Event.12","once")	//starts Y outwave AND Y WaveRead
 end
 
 Static Function YDoneFirst()
+print "YDoneFirst"
 
 	wave/t CenteringSettings
 	wave CenteringPathX,CenteringPathY
@@ -141,6 +146,7 @@ Static Function YDoneFirst()
 end
 
 Static Function ReRunCentering()
+print "ReRun"
 	wave/t CenteringSettings
 
 	wave CenteringPathX,CenteringPathY
@@ -160,6 +166,7 @@ Static Function ReRunCentering()
 end
 
 Static Function YDone()
+print "YDONE"
 	wave/t CenteringSettings
 	PrepZHold() //Sets up the ZHold again using the same setpoint as before.
 	td_ws("Event.13","once")	//This stops the deflection feedback, in preparation for setting everything up.
@@ -172,6 +179,7 @@ Static Function YDone()
 
 end
 Static Function FailtoSurface()
+print "FailtoSurface"
 	wave/t CenteringSettings
 	PrepZHold() //Sets up the ZHold again using the same setpoint as before.
 	td_ws("Event.13","once")	//This stops the deflection feedback, in preparation for setting everything up.
@@ -184,6 +192,7 @@ Static Function FailtoSurface()
 
 end
 Static Function BackatSurface()
+print "BackAtSurface"
 	wave CenteringXReadZ, CenteringYReadZ,CenteringXReadX,CenteringYReadY
 
 	Wave/T RampInfo=root:DE_CTFC:RampSettings
@@ -212,6 +221,7 @@ Static Function BackatSurface()
 end
 
 Static Function Centered()
+print "Centered"
 //DE_PIS_ZeroSetpointOffset(0,"")
 //DE_PIS_ZeroSetpointOffset(1,"")
 	UpdateCenteringPlots()
@@ -227,6 +237,7 @@ Static Function Centered()
 end
 
 Static function PauseStage()
+print "Pause Stage"
 	wave/t RefoldSettings
 	variable maxSeconds=str2num(RefoldSettings[%ApproachDelay][0])
 	if (maxSeconds<=0)
@@ -238,6 +249,7 @@ Static function PauseStage()
 end
 
 Static Function FinalRamp()
+print "Finalramp"
 	Wave/T rampsettings
 	variable indatarate=str2num(rampsettings[%SampleRate][0])*1e3
 	variable indecimation=-1*round(50e3/indatarate)
@@ -253,6 +265,7 @@ Static Function FinalRamp()
 	
 end
 Static Function RampOUtDone()
+print "RampOutDone"
 	Wave/T RepeaSettings,RampSettings
 	wave CentDefv= root:DE_CTFC:DefV_cent
 	wave CentZSnsr=root:DE_CTFC:ZSns_cent
@@ -265,6 +278,7 @@ Static Function RampOUtDone()
 end
 
 Static Function/C GenerateCentRampOut()
+print "GenerateCEntRampOut"
 	Wave/T rampsettings
 	wave/t RefoldSettings
 	variable totalpoints,slope2,decirate,totaldistance,outdecirate,constant2,endrmp1,endpause1,endrmp2,velocity,datarate
@@ -311,6 +325,7 @@ Static Function/C GenerateCentRampOut()
 End
 
 Static Function UpdateCenteringPlots()
+print "UpdateCenteringPlots"
 	wave CenteringXReadZ, CenteringYReadZ,CenteringXReadX,CenteringYReadY
 	duplicate/o CenteringXReadZ root:DE_CTFC:MenuStuff:Display_XRZ
 	duplicate/o CenteringYReadZ root:DE_CTFC:MenuStuff:Display_YRZ
@@ -520,7 +535,7 @@ Static function PlaceMarker(CenterLocation)
 end
 
 Static Function LostConnection()
-
+print "LostConnection"
 	wave ZsensorVolts_Fast=Zsensor_fast
 	wave/T TriggerInfo=root:DE_CTFC:TriggerSettings,RampInfo=root:DE_CTFC:RampSettings
 	td_ws("Event.13","once")	//This stops the deflection feedback, in preparation for setting everything up.
