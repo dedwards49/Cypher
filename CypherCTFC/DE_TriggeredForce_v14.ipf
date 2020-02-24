@@ -648,15 +648,17 @@ function DE_CB_NoMol(Experiment,Result)
 	string Experiment
 	variable Result
 	NVAR DataDone,CTFCSucc
-
+	variable returntozerooffset=0
 	strswitch(Experiment)
 
 		case "TFE":
 	
 			if(Result==1)
-//			DE_LoopRepeater()
+				if(returntozerooffset==0)
+			DE_LoopRepeater()
+			else
 				td_SetRamp(0.05, "PIDSLoop.0.SetpointOffSet", 0, 0, "PIDSLoop.1.SetpointOffSet", 0, 0, "", 0, 0, "DE_LoopRepeater()")
-
+			endif
 			else
 			td_SetRamp(0.05, "PIDSLoop.0.SetpointOffSet", 0, 0, "PIDSLoop.1.SetpointOffSet", 0, 0, "", 0, 0, "")
 			endif
@@ -673,13 +675,19 @@ function DE_CB_Mol(Experiment,Result)
 	string Experiment
 	variable Result
 	NVAR DataDone,CTFCSucc
-
+	variable KeepCenter=1
 	strswitch(Experiment)
 
 		case "TFE":
 	
 			if(Result==1)
-				td_SetRamp(.1, "PIDSLoop.0.SetpointOffSet", 0, 0, "PIDSLoop.1.SetpointOffSet", 0, 0, "", 0, 0, "DE_LoopRepeater()")
+				if(KeepCenter==1)
+					DE_LoopRepeater()
+				else
+				
+					td_SetRamp(.1, "PIDSLoop.0.SetpointOffSet", 0, 0, "PIDSLoop.1.SetpointOffSet", 0, 0, "", 0, 0, "DE_LoopRepeater()")
+
+				endif
 
 			//	DE_LoopRepeater()
 			else

@@ -2,9 +2,9 @@
 #pragma modulename=DE_CTFCMenu
 #include ":DE_CTFCMenu_Touch"
 #include ":DE_CTFCMenu_StepJump"
-
+#Include "C:\Users\Asylum User\Desktop\Devin\Projects\Processing\Processing_Smth\DE_Filtering"
 #include ":DE_CTFCMenu_Centering"
-
+//
 #include ":DE_CTFCMenu_JumpPause"
 #include ":DE_CTFCMenu_MultiRamp"
 #include ":DE_CTFCMenu_Thermal"
@@ -253,34 +253,58 @@ Static Function DoAPlot(WaveString)
 			if(V_flag==1)
 				//killwindow LatestRamp
 			else
-
-		
 				wave InitDefVolts=root:DE_CTFC:StuffToDo:InitDef
-
 				wave InitZSensorVolts=root:DE_CTFC:StuffToDo:InitZSensor
 				display/N=LatestRamp/W=(600,50,900,250) InitDefVolts vs InitZSensorVolts
 				if(waveexists(root:DE_CTFC:StuffToDo:LastDef))
 					wave DefVolts=root:DE_CTFC:StuffToDo:LastDef
 					wave ZSensorVolts=root:DE_CTFC:StuffToDo:LastZSensor
+					duplicate/o DefVolts root:DE_CTFC:StuffToDo:LastDef_Sm
+					duplicate/o ZSensorVolts root:DE_CTFC:StuffToDo:LastZSensor_Sm
+
+					wave DefVoltsSm=root:DE_CTFC:StuffToDo:LastDef_Sm
+					wave ZSensorVoltsSm=root:DE_CTFC:StuffToDo:LastZSensor_Sm
+					Smooth/S=2 51, DefVoltsSm,ZSensorVoltsSm
+
+				
 					appendtograph/W=LatestRamp DefVolts vs ZSensorVolts
-					ModifyGraph/W=LatestRamp rgb($nameofwave(DefVolts))=(0,0,0)
+					appendtograph/W=LatestRamp DefVoltsSm vs ZSensorVoltsSm
+					ModifyGraph/W=LatestRamp rgb($nameofwave(DefVolts))=(52224,52224,52224)
+					ModifyGraph/W=LatestRamp rgb($nameofwave(DefVoltsSm))=(0,0,0)
+
 				endif
 			endif
 			wave TDef=root:DE_CTFC:StuffToDo:TouchDef
 			wave TZsen=root:DE_CTFC:StuffToDo:TouchZSensor
+			
+			duplicate/o TDef  root:DE_CTFC:StuffToDo:TouchDef_Sm
+			duplicate/o TZsen  root:DE_CTFC:StuffToDo:TouchZSensor_Sm
+			wave TDefSm=root:DE_CTFC:StuffToDo:TouchDef_Sm
+			wave TZsenSm=root:DE_CTFC:StuffToDo:TouchZSensor_Sm
+			Smooth/S=2 51, TDefSm,TZsenSm
 			if(waveexists(TDef)==1&&Strsearch(tracenamelist("LatestRamp",";",1),nameofwave(TDef),1)==-1)
 
 
 				appendtograph/W=LatestRamp TDef vs TZsen
-				ModifyGraph/W=LatestRamp rgb($nameofwave(TDef))=(14848,32256,47104)
+				appendtograph/W=LatestRamp TDefSm vs TZsenSm
+				ModifyGraph/W=LatestRamp rgb($nameofwave(TDef))=(48640,55040,60160)
+				ModifyGraph/W=LatestRamp rgb($nameofwave(TDefSm))=(14848,32256,47104)
 			endif
 			wave DefVolts=root:DE_CTFC:StuffToDo:LastDef
 			wave ZSensorVolts=root:DE_CTFC:StuffToDo:LastZSensor
+			duplicate/o DefVolts root:DE_CTFC:StuffToDo:LastDef_Sm
+			duplicate/o ZSensorVolts root:DE_CTFC:StuffToDo:LastZSensor_Sm
+			wave DefVoltsSm=root:DE_CTFC:StuffToDo:LastDef_Sm
+			wave ZSensorVoltsSm=root:DE_CTFC:StuffToDo:LastZSensor_Sm
+					Smooth/S=2 51, DefVoltsSm,ZSensorVoltsSm
+
 			if(waveexists(DefVolts)==1&&Strsearch(tracenamelist("LatestRamp",";",1),nameofwave(DefVolts),1)==-1)
 
 
-				appendtograph/W=LatestRamp DefVolts vs ZSensorVolts
-				ModifyGraph/W=LatestRamp rgb($nameofwave(DefVolts))=(0,0,0)
+					appendtograph/W=LatestRamp DefVolts vs ZSensorVolts
+					appendtograph/W=LatestRamp DefVoltsSm vs ZSensorVoltsSm
+					ModifyGraph/W=LatestRamp rgb($nameofwave(DefVolts))=(52224,52224,52224)
+					ModifyGraph/W=LatestRamp rgb($nameofwave(DefVoltsSm))=(0,0,0)
 			endif
 			DoWindow/F LatestRamp
 
@@ -293,7 +317,7 @@ Static Function DoAPlot(WaveString)
 			if(V_flag==1)
 				duplicate/o MDefVolts root:DE_CTFC:StuffToDo:MultiDefSm
 				wave MDefVoltsSm=root:DE_CTFC:StuffToDo:MultiDefSm
-				Smooth/S=2 251, MDefVoltsSm				
+				Smooth/S=2 501, MDefVoltsSm				
 			else
 
 				duplicate/o MDefVolts root:DE_CTFC:StuffToDo:MultiDefSm
@@ -378,9 +402,17 @@ Static Function DoAPlot(WaveString)
 			wave TZsen=root:DE_CTFC:StuffToDo:TouchZSensor
 			if(Strsearch(tracenamelist("LatestRamp",";",1),nameofwave(TDef),1)==-1)
 
+				duplicate/o TDef  root:DE_CTFC:StuffToDo:TouchDef_Sm
+				duplicate/o TZsen  root:DE_CTFC:StuffToDo:TouchZSensor_Sm
 
+				wave TDefSm=root:DE_CTFC:StuffToDo:TouchDef_Sm
+				wave TZsenSm=root:DE_CTFC:StuffToDo:TouchZSensor_Sm
+				Smooth/S=2 51, TDefSm,TZsenSm
 				appendtograph/W=LatestRamp TDef vs TZsen
-				ModifyGraph/W=LatestRamp rgb($nameofwave(TDef))=(14848,32256,47104)
+				appendtograph/W=LatestRamp TDefSm vs TZsenSm
+				//(48640,55040,60160)
+				ModifyGraph/W=LatestRamp rgb($nameofwave(TDef))=(48640,55040,60160)
+				ModifyGraph/W=LatestRamp rgb($nameofwave(TDefSm))=(14848,32256,47104)
 			endif
 			DoWindow/F LatestRamp 
 			break

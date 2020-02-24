@@ -200,10 +200,14 @@ Static Function Done()
 	wavetransform/o zapNaNs DEfWave
 	String DName="root:DE_Calibrate:Current:DeflV_"+Settings[%CurrentSpot]
 	String ZName="root:DE_Calibrate:Current:ZSnsr_"+Settings[%CurrentSpot]
+	note/k DefWave GenericNoteFile()
+	note/k ZWave GenericNoteFile()
+
 	duplicate/o DEfWave $DName
 	duplicate/o ZWave $ZName
+
 	duplicate/o DEfWave root:DE_Calibrate:ZColor
-		variable SurfaceTriggerTime=str2num(TriggerInfo[%TriggerTime1])
+	variable SurfaceTriggerTime=str2num(TriggerInfo[%TriggerTime1])
 	wave ZColor=root:DE_Calibrate:ZColor
 	ZColor[0,x2pnt(DEfWave,SurfaceTriggerTime)]=3
 	ZColor[x2pnt(DEfWave,SurfaceTriggerTime),]=-7
@@ -285,8 +289,9 @@ Static Function MoveStageandGo()
 	Wave/T Settings=root:DE_Calibrate:CalibrateSettings
 	variable StepSize=str2num(Settings[%StepSize])
 	variable direction=(floor(enoise(2)))+2
-	Variable TargetPosition=td_rv("PIDSLoop.1.Setpoint")+StepSize*1e-9/GV("YLVDTSENS")
-	td_SetRamp(2, "PIDSLoop.1.Setpoint", 0, str2num(Settings[%MinPosition]), "", 0, 0, "", 0, 0, "DE_Calibrate#StartCalibrate()")
+	Variable TargetPosition=td_rv("PIDSLoop.1.Setpoint")+StepSize*1e-6/GV("YLVDTSENS")
+	print TargetPosition
+	td_SetRamp(2, "PIDSLoop.1.Setpoint", 0, TargetPosition, "", 0, 0, "", 0, 0, "DE_Calibrate#StartCalibrate()")
 end
 
 Static Function FullCycleDone()
@@ -394,20 +399,38 @@ Static Function CalculateInvols()
 	Results[%SumSignal][dimsize(Results,1)-1]=td_rv("Input.X")
 	Results[%CsrPnt1][dimsize(Results,1)-1]=x2pnt(DEfWave,CsrTime1)
 	Results[%CsrPnt2][dimsize(Results,1)-1]=x2pnt(DEfWave,CsrTime2)
-
-	ForceSetVarFunc("InvOLSSetVar_2",Invols,num2str(Invols)+"nm/V",  "MasterVariablesWave[%Invols][%Value]")
+	string InvolString
+	sprintf  InvolString, "%3.1f", Invols
+	variable newinvol=str2num(InvolString)
+	ForceSetVarFunc("InvOLSSetVar_2",newinvol,InvolString+"nm/V",  "MasterVariablesWave[%Invols][%Value]")
 	killwaves W_coef,W_sigma
 
 end
 
+//Static Function INsertInvols(Invol)
+//	variable Invol
+//		string InvolString
+//	sprintf  InvolString, "%3.1f", 100.75
+//	variable newinvol=str2num(InvolString)
+//	ForceSetVarFunc("InvOLSSetVar_2",newinvol,num2str(Invols)+"nm/V",  "MasterVariablesWave[%Invols][%Value]")
+//	end
+
+
 Static Function SaveThermal(ToporBottom)
 	string ToporBottom
 	Wave Thermal=root:packages:Mfp3d:Tune:TotalPsd
+	Wave ThermalFit=root:packages:Mfp3d:Tune:ThermalFit
+	Wave ThermalParms=root:packages:Mfp3d:Tune:SHOParm
+	Wave ThermalWidth=root:packages:Mfp3d:Tune:FitWidthWave
+	variable FitWidth=pnt2x(ThermalWidth,1)-pnt2x(ThermalWidth,0)
 	wave Results=root:DE_Calibrate:Current:Results
 	wave TVW=root:Packages:MFP3D:Main:Variables:ThermalVariablesWave
 	wave MVW=root:Packages:MFP3D:Main:Variables:MasterVariablesWave
 	Wave/T Settings=root:DE_Calibrate:CalibrateSettings
 	String SaveName="root:DE_Calibrate:Current:Thermal_"+Settings[%CurrentSpot]
+	String FitSaveName="root:DE_Calibrate:Current:ThermalFit_"+Settings[%CurrentSpot]
+	String FitSaveParms="root:DE_Calibrate:Current:ThermalParms_"+Settings[%CurrentSpot]
+
 	strswitch(ToporBottom)
 		case "Top":
 			//Results[%Invols][dimsize(Results,1)-1]=MVW[%InvOLS][%value]
@@ -416,16 +439,20 @@ Static Function SaveThermal(ToporBottom)
 			Results[%TopFrequency][dimsize(Results,1)-1]=TVW[%ThermalFrequency][%Value]
 			Results[%TopQValue][dimsize(Results,1)-1]=TVW[%ThermalQ][%Value]
 			SaveName=SaveName+"_Top"
-		
+			FitSaveName=FitSaveName+"_Top"
+			FitSaveParms=FitSaveParms+"_Top"
+
 		break
 		
 		
 		case "Bottom":
-			SaveName=SaveName+"_Bottom"
 			Results[%BotPos][dimsize(Results,1)-1]=td_rv("Zsensor")
 			Results[%BotSpringConstant][dimsize(Results,1)-1]=MVW[%DisplaySpringConstant][%value]
 			Results[%BotFrequency][dimsize(Results,1)-1]=TVW[%ThermalFrequency][%Value]
 			Results[%BotQValue][dimsize(Results,1)-1]=TVW[%ThermalQ][%Value]
+			SaveName=SaveName+"_Bottom"
+			FitSaveName=FitSaveName+"_Bottom"
+			FitSaveParms=FitSaveParms+"_Bottom"
 
 		break
 		
@@ -435,6 +462,34 @@ Static Function SaveThermal(ToporBottom)
 		
 	endswitch
 	duplicate/o Thermal $SaveName
+	duplicate/o ThermalFit $FitSaveName
+	duplicate/o ThermalParms $FitSaveParms
+	wave Parms=$FitSaveParms
+	insertpoints 4,1, Parms
+	Parms[4]=FitWidth
+end
+
+Static Function/S GenericNoteFile()
+	
+	String FinalString=""
+	FinalString=ReplaceStringByKey("Date", FinalString,date(),":","\r")
+	FinalString=ReplaceStringByKey("Time", FinalString,time(),":","\r")
+	FinalString=ReplaceStringByKey("Spring Constant", FinalString,num2str(GV("SpringConstant")),":","\r")
+	FinalString=ReplaceStringByKey("Invols", FinalString,num2str(GV("Invols")),":","\r")
+	FinalString=ReplaceStringByKey("XSensor", FinalString,num2str(td_Rv("Xsensor")),":","\r")
+	FinalString=ReplaceStringByKey("YSensor", FinalString,num2str(td_Rv("Ysensor")),":","\r")
+
+
+	FinalString=ReplaceStringByKey("YSensor", FinalString,num2str(td_Rv("Ysensor")),":","\r")
+	FinalString=ReplaceStringByKey("XLVDTSens", FinalString,num2str(GV("XLVDTSens")),":","\r")
+	FinalString=ReplaceStringByKey("XLVDTOff", FinalString,num2str(GV("XLVDTOffset")),":","\r")
+	FinalString=ReplaceStringByKey("YLVDTSens", FinalString,num2str(GV("YLVDTSens")),":","\r")
+	FinalString=ReplaceStringByKey("YLVDTOff", FinalString,num2str(GV("YLVDTOffset")),":","\r")
+	FinalString=ReplaceStringByKey("ZLVDTSens", FinalString,num2str(GV("ZLVDTSens")),":","\r")
+	FinalString=ReplaceStringByKey("ZLVDTOff", FinalString,num2str(GV("ZLVDTOffset")),":","\r")
+	FinalString=ReplaceStringByKey("Sum", FinalString,num2str(td_rv("Input.x")),":","\r")
+
+	return FinalString
 end
 
 Static Function SetupThermals(Callback)
@@ -740,6 +795,7 @@ end  //DE_ZeroPD
 Static Function ReturnStatsToPrompt(ResultsWave)
 
 	wave REsultswave
+	if(dimsize(ResultsWave,1)>1)
 	make/free/n=(dimsize(ResultsWave,1)) Invols,Topk,TopQ,topf,BottomK,BottomQ,Bottomf
 
 	Invols[]=REsultswave[1][p]
@@ -749,6 +805,7 @@ Static Function ReturnStatsToPrompt(ResultsWave)
 	BottomK=REsultswave[9][p]
 	BottomQ=REsultswave[11][p]
 	Bottomf=REsultswave[10][p]
+	
 	wavestats/Q Invols
 	print "Invols = "+num2str(V_AVG)+" +/- "+ num2str(V_SDev)+" nm/v"
 	
@@ -774,4 +831,7 @@ Static Function ReturnStatsToPrompt(ResultsWave)
 	//print "BottomQ= "+num2str(V_AVG)+" +/- "+ num2str(V_SDev)
 	//wavestats/Q Bottomf
 	//print "Bottomf= "+num2str(V_AVG/1e3)+" +/- "+ num2str(V_SDev/1e3)+" kHz"
+	else
+	print ResultsWave
+	endif
 end
