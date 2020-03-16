@@ -94,6 +94,8 @@ Function/Wave DE_PartofPull(ForceRetWave,SepWave,StartDist,[OffsetWaves])
 //	// Make the output wave and apply the appropriate labels to them.  
 	String Cfast=stringbykey("Corresponding Fast Pull",note(ForceRetWave),":","\r")
 	String CSlow=stringbykey("Corresponding Slow Pull",note(ForceRetWave),":","\r")
+	String DwellLoop2=stringbykey("DwellLoop2",note(ForceRetWave),":","\r")
+
 	String BaseName, Suffix, DataType, SectionStr
 	ExtractForceWaveName(NameOfWave(ForceRetWave),BaseName,Suffix,DataType,SectionStr)
 	String svel=stringbykey("RetractVelocity",note(ForceRetWave),":","\r")
@@ -115,10 +117,10 @@ Function/Wave DE_PartofPull(ForceRetWave,SepWave,StartDist,[OffsetWaves])
 	endif
 	
 	
-	Make/O/N=9 PullStuff
+	Make/O/N=10 PullStuff
 	//CLAnalysis(ForceRet,SepRet,"Devins",TypeOfMolecule="Protein",HistogramThreshold=5e-11,HistogramBinWidth=1e-9,HistogramAverage=1,PeakThreshold=15)
 	wave Selected_CLPeakInfo
-	PullStuff = {str2num(Suffix),str2num(Cfast),str2num(CSlow),ForceMax,ForceMaxLoc,ForceMax_Sep,str2num(svel),Decision,dimsize(Selected_CLPeakInfo,0)}
+	PullStuff = {str2num(Suffix),str2num(Cfast),str2num(CSlow),ForceMax,ForceMaxLoc,ForceMax_Sep,str2num(svel),Decision,dimsize(Selected_CLPeakInfo,0),strlen(DwellLoop2)}
 	SetDimLabel 0,0,$"Suffix",PullStuff
 	SetDimLabel 0,1,$"CFast",PullStuff
 	 SetDimLabel 0,2,$"CSlow",PullStuff
@@ -129,6 +131,7 @@ Function/Wave DE_PartofPull(ForceRetWave,SepWave,StartDist,[OffsetWaves])
 
 	SetDimLabel 0,7,$"Decision",PullStuff
 	SetDimLabel 0,8,$"PeakNumber",PullStuff
+	SetDimLabel 0,9,$"Dwell2",PullStuff
 
 	 // Get rid of the temp waves to keep things clean in the data folder
 	//KillWaves ForceRet,SepRet,TestWave,NewOffsetStats
@@ -317,3 +320,91 @@ Menu "Force Ramp Utilities"
 
 	
 End
+
+
+function/S DE_RemoveMulti(RuptureTestWave)
+	wave RuptureTestWave
+	string FPList=""
+	String ParmFolder = ARGetForceFolder("Parameters","","")
+	string wavefolder,datafolder
+	DataFolder=""
+	WaveFolder = parmFolder
+
+	Wave/Z/T MasterList = $WaveFolder+"MasterFPList"
+	variable A
+	string FolderSingle
+	FolderSingle=MasterList[0]
+	string savenum
+//
+	for(A=0;A<dimsize(RuptureTestWave,0);A+=1)
+		//for(A=0;A<10;A+=1)
+		if(isnan(RuptureTestWave[A][%CFast])==0||isnan(RuptureTestWave[A][%CSlow])==0||(RuptureTestWave[A][%Dwell2])!=0)
+			sprintf savenum,"%04.0f",GetDimLabel(RuptureTestWave, 0, 0 )
+			FPList+=GetDimLabel(RuptureTestWave, 0, A )+";"
+			DataFolder += MasterList[0]+";"
+		else
+
+		endif
+
+	endfor
+		DE_DeleteSelectedForceCurves(5,0,FPList, DataFolder)
+
+end
+
+function/S DE_SaveMulti(RuptureTestWave)
+	wave RuptureTestWave
+	string FPList=""
+	String ParmFolder = ARGetForceFolder("Parameters","","")
+	string wavefolder,datafolder
+	DataFolder=""
+	WaveFolder = parmFolder
+
+	Wave/Z/T MasterList = $WaveFolder+"MasterFPList"
+	variable A
+	string FolderSingle
+	FolderSingle=MasterList[0]
+	string savenum
+//
+	for(A=0;A<dimsize(RuptureTestWave,0);A+=1)
+		//for(A=0;A<10;A+=1)
+		if(isnan(RuptureTestWave[A][%CFast])==0||isnan(RuptureTestWave[A][%CSlow])==0||(RuptureTestWave[A][%Dwell2])!=0)
+
+		else
+			sprintf savenum,"%04.0f",GetDimLabel(RuptureTestWave, 0, 0 )
+			FPList+=GetDimLabel(RuptureTestWave, 0, A )+";"
+			DataFolder += MasterList[0]+";"
+		endif
+
+	endfor
+		DE_DeleteSelectedForceCurves(5,0,FPList, DataFolder)
+
+end
+
+function/S DE_RemoveCentering(RuptureTestWave)
+	wave RuptureTestWave
+	string FPList=""
+	String ParmFolder = ARGetForceFolder("Parameters","","")
+	string wavefolder,datafolder
+	DataFolder=""
+	WaveFolder = parmFolder
+
+	Wave/Z/T MasterList = $WaveFolder+"MasterFPList"
+	variable A
+	string FolderSingle
+	FolderSingle=MasterList[0]
+	string savenum
+//
+	for(A=0;A<dimsize(RuptureTestWave,0);A+=1)
+		//for(A=0;A<10;A+=1)
+		if((RuptureTestWave[A][%Dwell2])!=0)
+			sprintf savenum,"%04.0f",GetDimLabel(RuptureTestWave, 0, 0 )
+			FPList+=GetDimLabel(RuptureTestWave, 0, A )+";"
+			DataFolder += MasterList[0]+";"
+		else
+
+		endif
+
+	endfor
+		DE_DeleteSelectedForceCurves(5,0,FPList, DataFolder)
+
+end
